@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>prjcap</title>
+    <link rel="stylesheet" href="popup.css" />
+  </head>
+  <body>
+    <header class="hdr">
+      <h1>prjcap</h1>
+      <p class="sub">Проекты и задачи для agent-чата</p>
+    </header>
+
+    <section class="panel">
+      <label class="lbl">Активный проект</label>
+      <select id="projectSelect" class="ctl"></select>
+      <div class="row gap">
+        <button type="button" id="btnOpenPaste" class="btn primary">Открыть чат и вставить следующую задачу</button>
+      </div>
+      <div class="row gap">
+        <button type="button" id="btnOpenOnly" class="btn">Только открыть чат</button>
+        <button type="button" id="btnCopyNext" class="btn">Копировать текст следующей задачи</button>
+      </div>
+      <p id="statusLine" class="status" aria-live="polite"></p>
+    </section>
+
+    <section class="panel">
+      <h2>Новая задача</h2>
+      <textarea id="newTaskText" class="ctl area" rows="3" placeholder="Текст задачи…"></textarea>
+      <button type="button" id="btnAddTask" class="btn primary">Добавить задачу</button>
+    </section>
+
+    <section class="panel">
+      <h2>Очередь задач</h2>
+      <ul id="taskList" class="task-list"></ul>
+    </section>
+
+    <section class="panel collapsible">
+      <button type="button" class="collapse-toggle" id="toggleProjectForm" aria-expanded="false">
+        Проект: добавить / изменить
+      </button>
+      <div id="projectFormWrap" class="collapse-body hidden">
+        <label class="lbl">Название</label>
+        <input type="text" id="pfName" class="ctl" placeholder="myproj" />
+        <label class="lbl">URL чата с агентом</label>
+        <input type="url" id="pfChatUrl" class="ctl" placeholder="https://…" />
+        <label class="lbl">Постоянный промпт (instruction prefix)</label>
+        <textarea id="pfPrefix" class="ctl area" rows="4" placeholder="Контекст для агента…"></textarea>
+        <label class="lbl">CSS-селектор поля ввода (необязательно)</label>
+        <input type="text" id="pfSelector" class="ctl mono" placeholder="textarea, #chat-input, …" />
+        <div class="row gap">
+          <button type="button" id="btnSaveProject" class="btn primary">Сохранить проект</button>
+          <button type="button" id="btnDeleteProject" class="btn danger">Удалить проект</button>
+        </div>
+      </div>
+    </section>
+
+    <script type="module" src="popup.js"></script>
+  </body>
+</html>

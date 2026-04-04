@@ -1,0 +1,16 @@
+{
+  "manifest_version": 3,
+  "name": "prjcap",
+  "version": "1.0.0",
+  "description": "Проекты и задачи для agent-чата: открыть страницу чата и вставить сообщение следующей задачи.",
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "prjcap"
+  },
+  "permissions": ["storage", "tabs", "scripting", "clipboardWrite"],
+  "host_permissions": ["http://*/*", "https://*/*"],
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  }
+}
