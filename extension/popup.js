@@ -161,6 +161,18 @@ async function render(state) {
       });
       actions.appendChild(bCopy);
     }
+
+    // Кнопка редактирования для open и sent задач
+    if (t.status === "open" || t.status === "sent") {
+      const bEdit = document.createElement("button");
+      bEdit.type = "button";
+      bEdit.className = "btn";
+      bEdit.textContent = "Изменить";
+      bEdit.addEventListener("click", () => {
+        startEditTask(t.id, t.taskText, li);
+      });
+      actions.appendChild(bEdit);
+    }
     li.appendChild(actions);
     el.taskList.appendChild(li);
   }
@@ -179,6 +191,66 @@ async function markDone(taskId) {
   await saveState({ tasks });
   await refresh();
   setStatus("Задача отмечена выполненной.", "ok");
+}
+
+/** Перевод задачи в режим редактирования */
+function startEditTask(taskId, currentText, taskItemEl) {
+  const textDiv = taskItemEl.querySelector(".task-text");
+  if (!textDiv) return;
+
+  // Удаляем предыдущие режимы редактирования
+  const existingEdit = taskItemEl.querySelector(".task-edit-wrap");
+  if (existingEdit) existingEdit.remove();
+
+  const wrap = document.createElement("div");
+  wrap.className = "task-edit-wrap";
+
+  const textarea = document.createElement("textarea");
+  textarea.className = "ctl area";
+  textarea.value = currentText;
+  textarea.style.marginBottom = "8px";
+
+  const btnSave = document.createElement("button");
+  btnSave.type = "button";
+  btnSave.className = "btn primary";
+  btnSave.textContent = "Сохранить";
+  btnSave.style.minWidth = "100px";
+  btnSave.addEventListener("click", async () => {
+    const newText = textarea.value.trim();
+    if (!newText) {
+      setStatus("Текст задачи не может быть пустым.", "err");
+      return;
+    }
+    const state = await loadState();
+    const tasks = state.tasks.map((t) =>
+      t.id === taskId ? { ...t, taskText: newText } : t
+    );
+    await saveState({ tasks });
+    await refresh();
+    setStatus("Задача обновлена.", "ok");
+  });
+
+  const btnCancel = document.createElement("button");
+  btnCancel.type = "button";
+  btnCancel.className = "btn";
+  btnCancel.textContent = "Отмена";
+  btnCancel.style.minWidth = "80px";
+  btnCancel.addEventListener("click", () => {
+    wrap.remove();
+    textDiv.style.display = "";
+  });
+
+  const btnRow = document.createElement("div");
+  btnRow.className = "row gap";
+  btnRow.appendChild(btnSave);
+  btnRow.appendChild(btnCancel);
+
+  wrap.appendChild(textarea);
+  wrap.appendChild(btnRow);
+
+  textDiv.style.display = "none";
+  taskItemEl.insertBefore(wrap, taskItemEl.querySelector(".task-actions"));
+  textarea.focus();
 }
 
 el.projectSelect.addEventListener("change", async () => {
