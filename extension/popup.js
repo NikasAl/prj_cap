@@ -2,7 +2,7 @@ import { buildTaskMessage } from "./shared/message-builder.js";
 
 const STORAGE_KEYS = ["projects", "tasks", "lastProjectId"];
 
-/** @typedef {{ id: string, name: string, chatUrl: string, instructionPrefix: string, inputSelector?: string }} Project */
+/** @typedef {{ id: string, name: string, chatUrl: string, instructionPrefix?: string, agentTail?: string, inputSelector?: string }} Project */
 /** @typedef {{ id: string, projectId: string, taskText: string, status: 'open'|'sent'|'done', createdAt: string, sentAt?: string, doneAt?: string }} Task */
 
 function uid() {
@@ -37,6 +37,7 @@ const el = {
   pfName: /** @type {HTMLInputElement} */ (document.getElementById("pfName")),
   pfChatUrl: /** @type {HTMLInputElement} */ (document.getElementById("pfChatUrl")),
   pfPrefix: /** @type {HTMLTextAreaElement} */ (document.getElementById("pfPrefix")),
+  pfAgentTail: /** @type {HTMLTextAreaElement} */ (document.getElementById("pfAgentTail")),
   pfSelector: /** @type {HTMLInputElement} */ (document.getElementById("pfSelector")),
   btnSaveProject: document.getElementById("btnSaveProject"),
   btnDeleteProject: document.getElementById("btnDeleteProject"),
@@ -67,6 +68,7 @@ function fillProjectFormFromSelection(state) {
     el.pfName.value = p.name;
     el.pfChatUrl.value = p.chatUrl;
     el.pfPrefix.value = p.instructionPrefix || "";
+    el.pfAgentTail.value = p.agentTail || "";
     el.pfSelector.value = p.inputSelector || "";
   } else {
     el.pfName.value = "";
@@ -151,6 +153,7 @@ async function render(state) {
         if (!project) return;
         const msg = buildTaskMessage({
           instructionPrefix: project.instructionPrefix,
+          agentTail: project.agentTail,
           taskText: t.taskText,
         });
         await navigator.clipboard.writeText(msg);
@@ -214,6 +217,7 @@ el.btnSaveProject.addEventListener("click", async () => {
   const name = el.pfName.value.trim();
   const chatUrl = el.pfChatUrl.value.trim();
   const instructionPrefix = el.pfPrefix.value.trim();
+  const agentTail = el.pfAgentTail.value.trim();
   const inputSelector = el.pfSelector.value.trim();
   if (!name || !chatUrl) {
     setStatus("Нужны название и URL чата.", "err");
@@ -237,7 +241,8 @@ el.btnSaveProject.addEventListener("click", async () => {
     id,
     name,
     chatUrl,
-    instructionPrefix,
+    ...(instructionPrefix ? { instructionPrefix } : {}),
+    ...(agentTail ? { agentTail } : {}),
     ...(inputSelector ? { inputSelector } : {}),
   };
   const others = state.projects.filter((p) => p.id !== id);
@@ -294,6 +299,7 @@ el.btnCopyNext.addEventListener("click", async () => {
   }
   const msg = buildTaskMessage({
     instructionPrefix: project.instructionPrefix,
+    agentTail: project.agentTail,
     taskText: next.taskText,
   });
   await navigator.clipboard.writeText(msg);

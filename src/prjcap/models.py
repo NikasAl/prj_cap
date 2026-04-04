@@ -11,6 +11,7 @@ class Project:
     name: str
     chat_url: str
     instruction_prefix: str
+    agent_tail: Optional[str] = None
 
 
 @dataclass(frozen=True)

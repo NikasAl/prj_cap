@@ -7,13 +7,16 @@ DEFAULT_AGENT_TAIL = (
 )
 
 
-def build_task_message(*, instruction_prefix: str, task_text: str) -> str:
+def build_task_message(*, instruction_prefix: str, task_text: str, agent_tail: str | None = None) -> str:
     prefix = (instruction_prefix or "").strip()
+    tail = (agent_tail or "").strip()
     task = (task_text or "").strip()
     if prefix:
         header = prefix
     else:
         header = "You are an AI agent."
+
+    tail_part = tail if tail else DEFAULT_AGENT_TAIL
 
     # Keep it stable to simplify future UI/Flutter reuse.
     return "\n\n".join(
@@ -21,7 +24,7 @@ def build_task_message(*, instruction_prefix: str, task_text: str) -> str:
             header,
             "TASK:",
             task,
-            DEFAULT_AGENT_TAIL,
+            tail_part,
         ]
     ).strip() + "\n"
 

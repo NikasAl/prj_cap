@@ -71,11 +71,13 @@ def cmd_projects_add(args: argparse.Namespace) -> int:
     db_path = _repo_db(args.db)
     _ensure_db(db_path)
 
+    agent_tail = args.agent_tail.strip() if args.agent_tail else None
     p = upsert_project(
         db_path,
         name=args.name.strip(),
         chat_url=args.chat_url.strip(),
         instruction_prefix=args.instruction_prefix.strip(),
+        agent_tail=agent_tail,
     )
     _maybe_set_last_project(p.name)
     print(f'Project upserted: "{p.name}"')
@@ -144,7 +146,11 @@ def cmd_tasks_send(args: argparse.Namespace) -> int:
     task = task_with_project.task
     project = task_with_project.project
 
-    message = build_task_message(instruction_prefix=project.instruction_prefix, task_text=task.task_text)
+    message = build_task_message(
+        instruction_prefix=project.instruction_prefix,
+        agent_tail=project.agent_tail,
+        task_text=task.task_text,
+    )
 
     if task.status == "open":
         mark_task_sent(db_path, task.id)
@@ -231,6 +237,7 @@ def build_parser() -> argparse.ArgumentParser:
     p_projects_add.add_argument("--name", required=True)
     p_projects_add.add_argument("--chat-url", required=True)
     p_projects_add.add_argument("--instruction-prefix", required=True)
+    p_projects_add.add_argument("--agent-tail", default=None, help="Optional agent tail (what to do after task completion).")
     p_projects_add.set_defaults(func=cmd_projects_add)
 
     p_tasks = sub.add_parser("tasks", help="Tasks management.")

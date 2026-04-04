@@ -160,6 +160,7 @@ export async function openChatAndPasteNext(projectId) {
   const task = openTasks[0];
   const message = buildTaskMessage({
     instructionPrefix: project.instructionPrefix || "",
+    agentTail: project.agentTail || "",
     taskText: task.taskText || "",
   });
 

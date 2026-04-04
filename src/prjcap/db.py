@@ -23,6 +23,7 @@ def _row_to_project(row: sqlite3.Row) -> Project:
         name=row["name"],
         chat_url=row["chat_url"],
         instruction_prefix=row["instruction_prefix"],
+        agent_tail=row["agent_tail"],
     )
 
 
@@ -58,6 +59,7 @@ def init_db(db_path: Path) -> None:
               name TEXT NOT NULL UNIQUE,
               chat_url TEXT NOT NULL,
               instruction_prefix TEXT NOT NULL,
+              agent_tail TEXT,
               created_at TEXT NOT NULL DEFAULT (datetime('now')),
               updated_at TEXT NOT NULL DEFAULT (datetime('now'))
             );
@@ -89,22 +91,23 @@ def _utc_now_sql() -> str:
     return "datetime('now')"
 
 
-def upsert_project(db_path: Path, *, name: str, chat_url: str, instruction_prefix: str) -> Project:
+def upsert_project(db_path: Path, *, name: str, chat_url: str, instruction_prefix: str, agent_tail: str | None = None) -> Project:
     conn = make_connection(db_path)
     try:
         conn.execute(
             """
-            INSERT INTO projects(name, chat_url, instruction_prefix, created_at, updated_at)
-            VALUES(?, ?, ?, datetime('now'), datetime('now'))
+            INSERT INTO projects(name, chat_url, instruction_prefix, agent_tail, created_at, updated_at)
+            VALUES(?, ?, ?, ?, datetime('now'), datetime('now'))
             ON CONFLICT(name) DO UPDATE SET
               chat_url=excluded.chat_url,
               instruction_prefix=excluded.instruction_prefix,
+              agent_tail=excluded.agent_tail,
               updated_at=datetime('now');
             """,
-            (name, chat_url, instruction_prefix),
+            (name, chat_url, instruction_prefix, agent_tail),
         )
         conn.commit()
-        row = conn.execute("SELECT id, name, chat_url, instruction_prefix FROM projects WHERE name = ?", (name,)).fetchone()
+        row = conn.execute("SELECT id, name, chat_url, instruction_prefix, agent_tail FROM projects WHERE name = ?", (name,)).fetchone()
         assert row is not None
         return _row_to_project(row)
     finally:
@@ -114,7 +117,7 @@ def upsert_project(db_path: Path, *, name: str, chat_url: str, instruction_prefi
 def list_projects(db_path: Path) -> list[Project]:
     conn = make_connection(db_path)
     try:
-        rows = conn.execute("SELECT id, name, chat_url, instruction_prefix FROM projects ORDER BY name ASC").fetchall()
+        rows = conn.execute("SELECT id, name, chat_url, instruction_prefix, agent_tail FROM projects ORDER BY name ASC").fetchall()
         return [_row_to_project(r) for r in rows]
     finally:
         conn.close()
@@ -124,7 +127,7 @@ def get_project_by_name(db_path: Path, name: str) -> Project | None:
     conn = make_connection(db_path)
     try:
         row = conn.execute(
-            "SELECT id, name, chat_url, instruction_prefix FROM projects WHERE name = ?",
+            "SELECT id, name, chat_url, instruction_prefix, agent_tail FROM projects WHERE name = ?",
             (name,),
         ).fetchone()
         return _row_to_project(row) if row else None
@@ -181,6 +184,7 @@ def get_task_with_project(db_path: Path, task_id: int) -> TaskWithProject:
             name=row["name"],
             chat_url=row["chat_url"],
             instruction_prefix=row["instruction_prefix"],
+            agent_tail=row["agent_tail"],
         )
         task = _row_to_task(row)
         return TaskWithProject(task=task, project=project)
@@ -265,6 +269,7 @@ def list_tasks(
                 name=r["name"],
                 chat_url=r["chat_url"],
                 instruction_prefix=r["instruction_prefix"],
+                agent_tail=r["agent_tail"],
             )
             task = _row_to_task(r)
             result.append(TaskWithProject(task=task, project=project))

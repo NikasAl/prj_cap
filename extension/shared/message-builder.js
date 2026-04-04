@@ -1,16 +1,17 @@
 /** Соответствует prjcap.message_builder (Python). */
 
 export const DEFAULT_AGENT_TAIL =
-  "После выполнения: сделай коммит и `push` в репозиторий. " +
-  "Затем кратко опиши результат, чтобы пользователь мог его проверить.";
+  "После выполнения: сделаем коммит и пуш в репозиторий.";
 
 /**
- * @param {{ instructionPrefix: string, taskText: string }} opts
+ * @param {{ instructionPrefix?: string, agentTail?: string, taskText: string }} opts
  * @returns {string}
  */
-export function buildTaskMessage({ instructionPrefix, taskText }) {
+export function buildTaskMessage({ instructionPrefix, agentTail, taskText }) {
   const prefix = (instructionPrefix || "").trim();
+  const tail = (agentTail || "").trim();
   const task = (taskText || "").trim();
   const header = prefix ? prefix : "You are an AI agent.";
-  return `${header}\n\nTASK:\n\n${task}\n\n${DEFAULT_AGENT_TAIL}\n`.trim() + "\n";
+  const tailPart = tail ? tail : DEFAULT_AGENT_TAIL;
+  return `${header}\n--\n${task}\n--\n${tailPart}\n`.trim() + "\n";
 }
