@@ -463,6 +463,24 @@ body {
   50% { box-shadow: 0 0 0 6px rgba(232,93,93,.0); }
 }
 .btn-mic.hidden { display: none; }
+.btn-mic-settings {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px; height: 20px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  font-size: 11px;
+  cursor: pointer;
+  vertical-align: middle;
+  margin-left: 2px;
+  opacity: .5;
+  transition: opacity .2s;
+  line-height: 1;
+}
+.btn-mic-settings:hover { opacity: 1; }
+.voice-controls { display: inline-flex; align-items: center; vertical-align: middle; }
 .area-with-mic { padding-right: 10px; }
 
 /* ── Toast ── */

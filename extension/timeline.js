@@ -658,111 +658,182 @@ function setupDayDrop(btn, deltaDays) {
   });
 }
 
-/* ═══════════════════ Voice dictation (Web Speech API) ═══════════════════ */
+/* ═══════════════════ Voice dictation (MediaRecorder + Groq Whisper) ═══════════════════ */
 
-let recognition = null;
+let mediaRecorder = null;
+let audioChunks = [];
+let micStream = null;
 let isRecording = false;
-let baseText = "";  // text already in textarea when recording started
-let micStream = null; // active getUserMedia stream (keeps audio pipeline open)
+let recordTimer = null;
+let recordSeconds = 0;
 
-/** Detect Web Speech API availability and show/hide mic button */
-function initSpeechRecognition() {
-  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+const GROQ_API_URL = "https://api.groq.com/openai/v1/audio/transcriptions";
+
+/** Detect MediaRecorder support */
+function initVoiceInput() {
   const btn = $("btnMic");
-  if (!SpeechRecognition) {
+  const btnSettings = $("btnMicSettings");
+  if (!window.MediaRecorder || !navigator.mediaDevices?.getUserMedia) {
     btn.classList.add("hidden");
+    if (btnSettings) btnSettings.classList.add("hidden");
     return;
   }
-
-  recognition = new SpeechRecognition();
-  recognition.lang = "ru-RU";
-  recognition.continuous = false;   // single-utterance mode; we restart manually on end
-  recognition.interimResults = true; // show live text while speaking
-
-  recognition.onresult = (e) => {
-    console.log("[prjcap speech] onresult:", e.results.length, "from:", e.resultIndex);
-    // Collect all spoken text from this recognition session
-    let spoken = "";
-    for (let i = 0; i < e.results.length; i++) {
-      spoken += e.results[i][0].transcript;
-    }
-    console.log("[prjcap speech] spoken:", JSON.stringify(spoken));
-    if (!spoken) return;
-
-    const ta = $("mText");
-    ta.value = baseText ? `${baseText} ${spoken}` : spoken;
-    ta.scrollTop = ta.scrollHeight;
-  };
-
-  recognition.onerror = (e) => {
-    console.warn("[prjcap speech] error:", e.error, e.message);
-    if (e.error === "no-speech") return; // harmless — just silence
-    if (e.error === "aborted") return;   // user clicked stop
-    stopRecording();
-    if (e.error === "not-allowed") {
-      toast("Микрофон недоступен. Разрешите доступ в настройках.", "err");
-    } else {
-      toast(`Ошибка распознавания: ${e.error}`, "err");
-    }
-  };
-
-  recognition.onend = () => {
-    console.log("[prjcap speech] ended, isRecording:", isRecording);
-    if (!isRecording) return;
-    // Commit interim results into baseText so next session appends correctly
-    const ta = $("mText");
-    const current = ta.value.trim();
-    if (current !== baseText) {
-      baseText = current;
-    }
-    // Restart for continuous listening
-    setTimeout(() => {
-      if (!isRecording || !recognition) return;
-      try { recognition.start(); } catch (_) { stopRecording(); }
-    }, 100);
-  };
-
   btn.addEventListener("click", () => {
     if (isRecording) stopRecording();
     else startRecording();
   });
+  if (btnSettings) {
+    btnSettings.addEventListener("click", (e) => {
+      e.stopPropagation();
+      promptGroqApiKey();
+    });
+  }
+}
+
+async function getGroqApiKey() {
+  const d = await chrome.storage.local.get("groqApiKey");
+  return d.groqApiKey || "";
+}
+
+async function promptGroqApiKey() {
+  const current = await getGroqApiKey();
+  const key = prompt(
+    "Введите API ключ Groq (бесплатно на console.groq.com):\n" +
+    "1. Зарегистрируйтесь на console.groq.com\n" +
+    "2. Создайте API ключ в разделе API Keys\n" +
+    "3. Вставьте его сюда",
+    current || ""
+  );
+  if (key === null) return; // cancelled
+  if (key.trim()) {
+    await chrome.storage.local.set({ groqApiKey: key.trim() });
+    toast("API ключ сохранён", "ok");
+  } else {
+    await chrome.storage.local.remove("groqApiKey");
+    toast("API ключ удалён", "ok");
+  }
 }
 
 async function startRecording() {
-  if (!recognition) return;
-  // Snapshot what's already in the textarea so we always append to it
-  baseText = $("mText").value.trim();
-  isRecording = true;
-  $("btnMic").classList.add("recording");
-  $("btnMic").textContent = "⏹";
+  const apiKey = await getGroqApiKey();
+  if (!apiKey) {
+    toast("Нужен API ключ. Нажмите ⚙️ рядом с микрофоном.", "err");
+    return;
+  }
 
-  // CRITICAL: In chrome-extension:// context, SpeechRecognition does not
-  // produce onresult events unless we first open an audio stream via
-  // getUserMedia. This establishes the audio pipeline that the recognition
-  // engine uses to capture microphone input.
   try {
     micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-    console.log("[prjcap speech] mic stream acquired");
+    console.log("[prjcap voice] mic stream acquired");
   } catch (err) {
-    console.warn("[prjcap speech] getUserMedia failed:", err);
-    stopRecording();
+    console.warn("[prjcap voice] getUserMedia failed:", err);
     toast("Не удалось получить доступ к микрофону", "err");
     return;
   }
 
-  try { recognition.start(); } catch (_) { /* already started */ }
+  audioChunks = [];
+
+  // Prefer webm with opus codec, fallback to default
+  const mimeType = MediaRecorder.isTypeSupported("audio/webm;codecs=opus")
+    ? "audio/webm;codecs=opus"
+    : "audio/webm";
+
+  mediaRecorder = new MediaRecorder(micStream, { mimeType });
+
+  mediaRecorder.ondataavailable = (e) => {
+    if (e.data.size > 0) audioChunks.push(e.data);
+  };
+
+  mediaRecorder.onstop = async () => {
+    // Release mic immediately
+    if (micStream) {
+      micStream.getTracks().forEach((t) => t.stop());
+      micStream = null;
+    }
+    clearInterval(recordTimer);
+
+    if (audioChunks.length === 0) {
+      toast("Аудио не записано", "err");
+      return;
+    }
+
+    const blob = new Blob(audioChunks, { type: mimeType });
+    console.log("[prjcap voice] recorded blob:", blob.size, "bytes");
+    await transcribeAudio(blob);
+  };
+
+  mediaRecorder.start(250); // collect chunks every 250ms
+  isRecording = true;
+  recordSeconds = 0;
+  $("btnMic").classList.add("recording");
+  $("btnMic").textContent = "⏹";
+
+  // Show recording duration
+  recordTimer = setInterval(() => {
+    recordSeconds++;
+    const m = String(Math.floor(recordSeconds / 60)).padStart(2, "0");
+    const s = String(recordSeconds % 60).padStart(2, "0");
+    $("btnMic").textContent = `⏹ ${m}:${s}`;
+  }, 1000);
 }
 
 function stopRecording() {
-  if (!recognition) return;
+  if (mediaRecorder && mediaRecorder.state !== "inactive") {
+    mediaRecorder.stop();
+  }
   isRecording = false;
   $("btnMic").classList.remove("recording");
   $("btnMic").textContent = "🎤";
-  try { recognition.stop(); } catch (_) {}
-  // Release microphone stream
-  if (micStream) {
-    micStream.getTracks().forEach((t) => t.stop());
-    micStream = null;
+  clearInterval(recordTimer);
+}
+
+async function transcribeAudio(audioBlob) {
+  const apiKey = await getGroqApiKey();
+  if (!apiKey) { toast("API ключ не настроен", "err"); return; }
+
+  $("btnMic").textContent = "⏳";
+  toast("Распознаю речь…", "ok");
+
+  const formData = new FormData();
+  formData.append("file", audioBlob, "recording.webm");
+  formData.append("model", "whisper-large-v3-turbo");
+  formData.append("language", "ru");
+  formData.append("response_format", "text");
+
+  try {
+    const resp = await fetch(GROQ_API_URL, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${apiKey}` },
+      body: formData,
+    });
+
+    if (!resp.ok) {
+      const errBody = await resp.text();
+      console.warn("[prjcap voice] API error:", resp.status, errBody);
+      if (resp.status === 401) {
+        toast("Неверный API ключ. Нажмите ⚙️ чтобы обновить.", "err");
+      } else {
+        toast(`Ошибка API: ${resp.status}`, "err");
+      }
+      return;
+    }
+
+    const text = await resp.text();
+    console.log("[prjcap voice] transcribed:", JSON.stringify(text));
+
+    if (text.trim()) {
+      const ta = $("mText");
+      const base = ta.value.trim();
+      ta.value = base ? `${base} ${text.trim()}` : text.trim();
+      ta.scrollTop = ta.scrollHeight;
+      toast("Голос распознан", "ok");
+    } else {
+      toast("Речь не распознана. Попробуйте ещё раз.", "err");
+    }
+  } catch (err) {
+    console.warn("[prjcap voice] fetch error:", err);
+    toast("Ошибка сети при распознавании", "err");
+  } finally {
+    $("btnMic").textContent = "🎤";
   }
 }
 
@@ -822,7 +893,7 @@ function init() {
   setupDayDrop($("btnPrevDay"), -1);
   setupDayDrop($("btnNextDay"), 1);
 
-  initSpeechRecognition();
+  initVoiceInput();
   buildTimeLabels();
   buildSlotGrid();
 
