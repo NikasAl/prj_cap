@@ -1,10 +1,7 @@
 import { buildTaskMessage } from "./shared/message-builder.js";
 import { uid, loadState, saveState } from "./shared/storage.js";
-
-const PROJECT_COLORS = [
-  "#3d8bfd", "#3ecf8e", "#ff9f43", "#ee5a6f", "#a78bfa",
-  "#22d3ee", "#f472b6", "#84cc16", "#fbbf24", "#6366f1",
-];
+import { projColor } from "./shared/colors.js";
+import { fmtD, todayStr, t2m } from "./shared/date-utils.js";
 
 /** @typedef {{ id: string, name: string, chatUrl: string, instructionPrefix?: string, agentTail?: string, inputSelector?: string }} Project */
 /** @typedef {{ id: string, projectId: string, taskText: string, status: 'open'|'sent'|'done', createdAt: string, sentAt?: string, doneAt?: string, scheduledDate?: string, scheduledTime?: string, duration?: number }} Task */
@@ -49,30 +46,7 @@ function selectedProjectId() {
   return el.projectSelect.value || null;
 }
 
-function fmtD(d) {
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-}
-
-function todayStr() {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-}
-
-function t2m(t) {
-  if (!t) return -1;
-  const [h, m] = t.split(":").map(Number);
-  return h * 60 + m;
-}
-
-function hashStr(s) {
-  let h = 0;
-  for (let i = 0; i < s.length; i++) h = ((h << 5) - h + s.charCodeAt(i)) | 0;
-  return h;
-}
-
-function projColor(pid) {
-  return PROJECT_COLORS[Math.abs(hashStr(pid || "")) % PROJECT_COLORS.length];
-}
+/* colors and date utils imported from shared/ */
 
 /** @param {Project[]} projects */
 /** @param {Task[]} tasks */

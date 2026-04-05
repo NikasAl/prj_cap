@@ -20,7 +20,7 @@
     "128": "icon128.png"
   },
   "permissions": ["storage", "tabs", "scripting", "clipboardWrite"],
-  "host_permissions": ["http://*/*", "https://api.groq.com/*", "https://smartspeech.sber.ru/*", "https://ngw.devices.sberbank.ru/*"],
+  "host_permissions": ["https://smartspeech.sber.ru/*", "https://ngw.devices.sberbank.ru/*"],
   "background": {
     "service_worker": "background.js",
     "type": "module"

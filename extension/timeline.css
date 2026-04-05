@@ -1,24 +1,13 @@
 /* ═══════════════════════════════════════
    prjcap — Timeline page styles
+   Shared tokens in shared/base.css
    ═══════════════════════════════════════ */
 
+/* page-specific variables only */
 :root {
-  --bg: #0f1419;
-  --panel: #1a2332;
-  --border: #2d3a4d;
   --border-light: #232d3d;
-  --text: #e7edf5;
-  --muted: #8b9cb3;
-  --accent: #3d8bfd;
-  --accent-hi: #5ba3ff;
-  --danger: #e85d5d;
-  --ok: #3ecf8e;
   --now: #ff4757;
-  font-family: system-ui, "Segoe UI", Roboto, Ubuntu, sans-serif;
-  font-size: 13px;
 }
-
-* { box-sizing: border-box; }
 
 body {
   margin: 0;

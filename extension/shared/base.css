@@ -1,0 +1,26 @@
+/* ═══════════════════════════════════════
+   prjcap — Shared base styles
+   Design tokens and common utilities.
+   ═══════════════════════════════════════ */
+
+:root {
+  --bg: #0f1419;
+  --panel: #1a2332;
+  --border: #2d3a4d;
+  --text: #e7edf5;
+  --muted: #8b9cb3;
+  --accent: #3d8bfd;
+  --accent-hi: #5ba3ff;
+  --danger: #e85d5d;
+  --ok: #3ecf8e;
+  font-family: system-ui, "Segoe UI", Roboto, Ubuntu, sans-serif;
+  font-size: 13px;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+.hidden {
+  display: none;
+}

@@ -1,4 +1,5 @@
 import { buildTaskMessage } from "./shared/message-builder.js";
+import { loadState, saveState } from "./shared/storage.js";
 
 /**
  * Выполняется в контексте страницы чата (без замыканий на модуль).
@@ -131,23 +132,13 @@ function waitTabComplete(tabId) {
   });
 }
 
-async function loadData() {
-  const d = await chrome.storage.local.get(["projects", "tasks"]);
-  return {
-    projects: Array.isArray(d.projects) ? d.projects : [],
-    tasks: Array.isArray(d.tasks) ? d.tasks : [],
-  };
-}
-
-async function saveTasks(tasks) {
-  await chrome.storage.local.set({ tasks });
-}
+/* ── Tab completion helper ── */
 
 /**
  * @param {string} projectId
  */
 export async function openChatAndPasteNext(projectId) {
-  const { projects, tasks } = await loadData();
+  const { projects, tasks } = await loadState();
   const project = projects.find((p) => String(p.id) === String(projectId));
   if (!project) return { ok: false, error: "Проект не найден." };
 
@@ -181,7 +172,7 @@ export async function openChatAndPasteNext(projectId) {
     const nextTasks = tasks.map((t) =>
       t.id === task.id ? { ...t, status: "sent", sentAt: new Date().toISOString() } : t
     );
-    await saveTasks(nextTasks);
+    await saveState({ tasks: nextTasks });
   }
 
   return {

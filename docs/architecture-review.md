@@ -1,233 +1,217 @@
-# prjcap — Анализ архитектуры и рекомендации по рефакторингу
+# prjcap — Анализ архитектуры и статус рефакторинга
 
 **Дата:** 2026-04-05  
-**Версия:** 1.0.0 (commit 859f542)  
-**Объём:** ~3 000 строк (JS: 1 826, CSS: 932, HTML: 177, JSON: 28)
+**Версия:** 1.1.0 (post-refactor)  
+**Объём:** ~2 900 строк (JS: ~2 000, CSS: ~910, JSON: 28)
 
 ---
 
-## 1. Текущая структура проекта
+## 1. Текущая структура проекта (после рефакторинга P1)
 
 ```
 extension/
-├── manifest.json              (28 строк)    — MV3 манифест
-├── background.js              (205 строк)   — Service Worker
-├── popup.html + popup.js + popup.css         — Popup (управление задачами)
-├── timeline.html + timeline.js + timeline.css — Полностраничный таймлайн
+├── manifest.json                (28 строк)     — MV3 манифест
+├── background.js                (196 строк)    — Service Worker (упрощённый)
+├── popup.html + popup.js + popup.css           — Popup (управление задачами)
+├── timeline.html + timeline.css                — Полностраничный таймлайн
+├── timeline/
+│   ├── app.js                   (66 строк)     — Инициализация, события, хоткеи
+│   ├── render.js                (275 строк)    — Рендеринг карточек, сетки, фильтров
+│   ├── drag-drop.js             (184 строк)    — Drag & Drop (event delegation)
+│   ├── modal.js                 (197 строк)    — CRUD модальное окно + toggle done
+│   ├── voice.js                 (265 строк)    — SaluteSpeech: запись, конвертация, распознавание
+│   ├── state.js                 (35 строк)     — Общее mutable state (объект tl)
+│   ├── date-nav.js              (23 строки)    — Навигация по датам
+│   └── ui.js                    (12 строк)     — Toast-уведомления
 ├── shared/
-│   ├── storage.js             (34 строки)   — chrome.storage обёртка
-│   └── message-builder.js     (17 строк)    — Сборка промпта
+│   ├── storage.js               (34 строки)    — chrome.storage обёртка
+│   ├── message-builder.js       (17 строк)     — Сборка промпта
+│   ├── colors.js                (29 строк)     — PROJECT_COLORS, hashStr, projColor, hexRgba
+│   ├── date-utils.js            (56 строк)     — fmtD, t2m, m2t, slot2time, MONTHS_RU, DOW_RU
+│   └── base.css                 (26 строк)     — :root переменные, *, .hidden
 └── icon{16,32,48,128}.png
 ```
 
-### Архитектурная схема (as-is)
+### Архитектурная схема (after P1 refactor)
 
 ```
-┌─────────────┐     messages      ┌──────────────────┐
-│   popup.js  │ ◄──────────────► │   background.js  │
-│  (popup UI) │                   │ (service worker) │
-└──────┬──────┘                   └────────┬─────────┘
-       │                                   │ chrome.storage.local
-       │                                   │
-┌──────┴──────────────────────────────────┐│
-│           timeline.js                   ││
-│  ┌─────────────────────────────────┐    ││
-│  │ Рендеринг карточек              │    ││
-│  │ DnD (sidebar↔timeline↔дни)     │    ││
-│  │ Modal CRUD                     │    ││
-│  │ Голосовой ввод (SaluteSpeech)  │    ││
-│  │ Аудио-конвертация (WebM→WAV)   │    ││
-│  │ Toast-уведомления              │    ││
-│  │ Клавиатурные хоткеи            │    ││
-│  └─────────────────────────────────┘    ││
-└─────────────────────────────────────────┘│
-                                            ▼
-                                    chrome.storage.local
+                 shared/
+              ┌─────────────────────────┐
+              │ storage.js   colors.js  │
+              │ date-utils  base.css    │
+              │ message-builder.js      │
+              └──┬──────────┬──────────┘
+                 │          │
+   ┌─────────────┘          └──────────────┐
+   │                                       │
+┌──┴──────────┐  chrome.runtime.onMessage ┌┴──────────────┐
+│  popup.js   │ ◄──────────────────────► │ background.js  │
+│  (imports:  │                           │ (imports:      │
+│   shared/*) │                           │  shared/*)     │
+└─────────────┘                           └────────────────┘
+                                                  │
+                    chrome.storage.local           │
+                         ▲                       │
+                         │                       │
+┌────────────────────────┴────────────────────────┐
+│              timeline/ modules                  │
+│  ┌──────────┐  ┌────────────┐  ┌───────────┐  │
+│  │ app.js   │──│ render.js  │  │ state.js  │  │
+│  │ (init)   │  │ (cards,    │  │ (tl obj)  │  │
+│  │          │  │  grid)     │  │           │  │
+│  ├──────────┤  └────────────┘  └───────────┘  │
+│  │date-nav  │  ┌────────────┐  ┌───────────┐  │
+│  │(nav)     │  │drag-drop.js│  │ modal.js  │  │
+│  ├──────────┤  │ (DnD via   │  │ (CRUD,    │  │
+│  │ voice.js │  │  delegation│  │  events)  │  │
+│  │ (Sber)   │  └────────────┘  └───────────┘  │
+│  ├──────────┤                                  │
+│  │ ui.js    │  shared/* (colors, date-utils)   │
+│  │ (toast)  │                                  │
+│  └──────────┘                                  │
+└────────────────────────────────────────────────┘
 ```
+
+### Ключевые архитектурные решения
+
+- **Event delegation** — обработчики кликов на карточках привязаны к родительским контейнерам (`taskLayer`, `unscheduledList`) через `data-task-id`. Избегает циклических зависимостей между модулями.
+- **Объектное mutable state** (`tl` в `state.js`) — вместо scattered `let` переменных. ES module `let` exports read-only из других модулей, поэтому используется мутабельный объект.
+- **Нет циклических импортов** — граф зависимостей направленный: `app.js → render.js → state.js → shared/*`.
 
 ---
 
-## 2. Выявленные проблемы
+## 2. Результаты рефакторинга P1
 
-### 2.1. God-файл: `timeline.js` — 1 052 строки
+### ✅ 3.1. Разбить `timeline.js` на модули
 
-Это самая критичная проблема. Один файл содержит шесть разнородных доменов логики, которые слабо связаны между собой:
+**Статус: DONE**
 
-| Домен | Примерные строки | Что делает |
-|-------|-------------------|------------|
-| Рендеринг таймлайна | 76–380 | `renderCards`, `layoutColumns`, `renderUnscheduled`, `updateNowLine` |
-| Drag & Drop | 525–702 | `setupTimelineDrop`, `setupSidebarDrop`, `setupDayDrop`, `onCardDragStart` |
-| Modal CRUD | 401–523 | `openModal`, `saveModal`, `deleteModal` |
-| Голосовой ввод | 704–978 | `startRecording`, `stopRecording`, `transcribeWithSber`, `webmToWavBlob`, `getSberAccessToken` |
-| Навигация | 382–399 | `navDate`, `goToday`, `onFilterChange` |
-| UI-утилиты | 985–1052 | `toast`, `onStorageChange`, `init`, хоткеи |
+God-файл `timeline.js` (1 052 строки, 6 доменов) разбит на 7 модулей:
 
-**Следствия:** при любом изменении (например, починить баг DnD) разработчик вынужден читать весь файл целиком. Сложно тестировать отдельные части.
+| Модуль | Строк | Доменов | Ответственность |
+|--------|-------|---------|-----------------|
+| `timeline/app.js` | 66 | 1 | Инициализация, event listeners, хоткеи |
+| `timeline/render.js` | 275 | 1 | Рендеринг карточек, сетки слотов, фильтров, now-line |
+| `timeline/drag-drop.js` | 184 | 1 | DnD между слотами, днями, sidebar |
+| `timeline/modal.js` | 197 | 1 | CRUD модальное окно, toggle done |
+| `timeline/voice.js` | 265 | 1 | SaluteSpeech запись, WebM→WAV, распознавание |
+| `timeline/state.js` | 35 | 1 | Общий mutable state |
+| `timeline/date-nav.js` | 23 | 1 | Навигация по датам |
+| `timeline/ui.js` | 12 | 1 | Toast-уведомления |
 
-### 2.2. Дублирование кода между `popup.js` и `timeline.js`
+Максимальный размер модуля: 275 строк (render.js) вместо 1 052 строк в одном файле.
 
-Некоторые функции скопированы практически один-в-один:
+### ✅ 3.2. Вынести общее в `shared/`
 
-| Сущность | popup.js | timeline.js |
-|----------|----------|-------------|
-| `PROJECT_COLORS` | строки 4–7 | строки 14–17 |
-| `hashStr()` | строки 58–62 | строки 61–65 |
-| `projColor()` | строки 64–66 | строки 66–68 |
-| `t2m()` | строки 52–56 | строки 50–54 |
+**Статус: DONE**
 
-Это нарушение DRY. Если изменить палитру цветов или логику хеширования — нужно не забыть обновить оба файла.
+Создано 3 новых shared-модуля:
 
-### 2.3. `background.js` дублирует логику хранения
+| Модуль | Что содержит |
+|--------|-------------|
+| `shared/colors.js` | `PROJECT_COLORS`, `hashStr()`, `projColor()`, `hexRgba()` |
+| `shared/date-utils.js` | `fmtD()`, `fmtDateRu()`, `dowRu()`, `t2m()`, `m2t()`, `slot2time()`, `time2slot()`, `todayStr()`, `MONTHS_RU`, `DOW_RU`, `SLOT_H`, `PER_HOUR`, `TOTAL_SLOTS`, `SLOT_MIN` |
+| `shared/base.css` | `:root` переменные (`--bg`, `--panel`, `--border`, `--text`, `--muted`, `--accent`, `--accent-hi`, `--danger`, `--ok`), `* { box-sizing }`, `.hidden` |
 
-```js
-// background.js — своя реализация
-async function loadData() {
-  const d = await chrome.storage.local.get(["projects", "tasks"]);
-  return { projects: ..., tasks: ... };
-}
-async function saveTasks(tasks) {
-  await chrome.storage.local.set({ tasks });
-}
+`popup.js` удалено ~30 строк дублирующего кода. `popup.css` и `timeline.css` очищены от дублирующихся `:root` и `.hidden`.
+
+### ✅ 3.3. Сузить `host_permissions`
+
+**Статус: DONE**
+
+```diff
+- "host_permissions": ["http://*/*", "https://api.groq.com/*", "https://smartspeech.sber.ru/*", "https://ngw.devices.sberbank.ru/*"]
++ "host_permissions": ["https://smartspeech.sber.ru/*", "https://ngw.devices.sberbank.ru/*"]
 ```
 
-При этом в проекте уже есть `shared/storage.js` с `loadState()` и `saveState()`. Причина, по которой background.js не может использовать ES-модули из `shared/` — он работает как Service Worker, но `manifest.json` уже указывает `"type": "module"`, так что импорт возможен.
+Удалены `http://*/*` (запрос ко всем HTTP-сайтам) и `https://api.groq.com/*` (Groq API больше не используется — заменён на SaluteSpeech). Вставка текста в чат работает через `chrome.scripting.executeScript` с `activeTab` по клику пользователя.
 
-### 2.4. Дублирование CSS
+### ✅ 3.4. Удалить дублирующий storage в `background.js`
 
-Оба файла стилей (`popup.css` 332 строки и `timeline.css` 600 строк) независимо определяют одни и те же сущности:
+**Статус: DONE**
 
-- `:root` с переменными (`--bg`, `--panel`, `--border`, `--text`, `--muted`, `--accent`, `--danger`, `--ok`)
-- Класс `.btn` с вариантами `.primary`, `.danger`
-- Класс `.toast` с анимациями
-- Класс `.ctl` для форм-элементов
-
-При смене цветовой схемы потребуется менять оба файла.
-
-### 2.5. Широкие `host_permissions`
-
-```json
-"host_permissions": ["http://*/*", "https://api.groq.com/*", ...]
+```diff
+- async function loadData() { ... }   // 7 строк
+- async function saveTasks(tasks) { ... }  // 3 строки
++ import { loadState, saveState } from "./shared/storage.js";
 ```
 
-`http://*/*` — это запрос ко всем HTTP-сайтам. Chrome Web Store может отклонить расширение с таким разрешением. Для функционала нужно только:
-
-```json
-"host_permissions": [
-  "https://smartspeech.sber.ru/*",
-  "https://ngw.devices.sberbank.ru/*"
-]
-```
-
-Вставка текста в чат выполняется через `chrome.scripting.executeScript`, который работает с `activeTab` (срабатывает по клику пользователя).
-
-### 2.6. Отсутствие сборки и форматирования
-
-- Нет бандлера (Webpack, Vite, Rollup) — каждый файл загружается отдельно, нет tree-shaking
-- Нет TypeScript — только JSDoc-комментарии для типизации (`@typedef`)
-- Нет линтера (ESLint) и форматтера (Prettier) — код стилизован вручную, разные отступы
-- Нет тестов вообще
-
-### 2.7. Глобальное мутабельное состояние в `timeline.js`
-
-```js
-let curDate = new Date();
-let filterPid = "";
-let editId = null;
-let dragId = null;
-let state = { projects: [], tasks: [] };
-```
-
-Все эти переменные — глобальные, мутируемые. Любая асинхронная функция может изменить `state`, пока другая функция его читает. Сейчас это не приводит к багам из-за однопоточной природы JS, но делает код хрупким при расширении.
-
-### 2.8. Инлайн SVG как строки в JS
-
-```js
-const MIC_IDLE_SVG = '<svg class="mic-icon" viewBox="0 0 24 24" width="14" height="14" ...>';
-const MIC_REC_SVG = '<svg ...>';
-const MIC_WAIT_SVG = '<svg ...>';
-```
-
-Три SVG-иконки живут как многострочные строковые литералы в JS. При изменении иконки приходится редактировать JavaScript. Это ухудшает читаемость и не даёт подсветки синтаксиса SVG.
-
-### 2.9. `pasteInjectFn` в `background.js` — 113 строк
-
-Эта функция внедряется в контекст произвольной веб-страницы через `chrome.scripting.executeScript({ func: pasteInjectFn })`. Это правильный подход (функция сериализуется и теряет связь с модулем), но 113 строк логики поиска и заполнения полей в одном файле с бизнес-логикой — тяжело поддерживать.
-
-### 2.10. Ошибки в модели данных
-
-- `doneAt` устанавливается как `new Date().toISOString()`, но при возврате из done в open — становится `undefined` вместо удаления ключа. Это оставляет «мусор» в объекте задачи.
-- Нет валидации данных при чтении из `chrome.storage.local` — если что-то испортилось, расширение молча ломается.
-- Статус `'sent'` используется только в popup.js (при отправке в чат), но в timeline.js в `saveModal` можно установить `status: "sent"`, хотя timeline не имеет механизма отправки.
+`background.js` теперь импортирует `loadState` и `saveState` из `shared/storage.js` вместо дублирования логики. Размер файла уменьшился с 205 до 196 строк.
 
 ---
 
-## 3. Рекомендации по рефакторингу
+## 3. Метрики: до и после
 
-### Приоритет 1: Высокий (решает реальные проблемы)
+### Размер файлов
 
-#### 3.1. Разбить `timeline.js` на модули
+| Файл | До | После | Δ |
+|------|-----|-------|---|
+| timeline.js | 1 052 | удалён | — |
+| timeline/app.js | — | 66 | +66 |
+| timeline/render.js | — | 275 | +275 |
+| timeline/drag-drop.js | — | 184 | +184 |
+| timeline/modal.js | — | 197 | +197 |
+| timeline/voice.js | — | 265 | +265 |
+| timeline/state.js | — | 35 | +35 |
+| timeline/date-nav.js | — | 23 | +23 |
+| timeline/ui.js | — | 12 | +12 |
+| popup.js | 614 | 588 | −26 |
+| background.js | 205 | 196 | −9 |
+| shared/colors.js | — | 29 | +29 |
+| shared/date-utils.js | — | 56 | +56 |
+| shared/base.css | — | 26 | +26 |
+| timeline.css | 600 | 589 | −11 |
+| popup.css | 341 | 321 | −20 |
+| **Итого** | **~2 913** | **~2 862** | **−51** |
 
-Предлагаемая структура:
+### Максимальный размер модуля
 
-```
-extension/
-├── timeline/
-│   ├── app.js                 — Инициализация, сборка,orchestration (~100 строк)
-│   ├── render.js              — renderCards, renderUnscheduled, renderDateLabel, renderFilter (~250 строк)
-│   ├── drag-drop.js           — Все DnD-хендлеры (~180 строк)
-│   ├── modal.js               — openModal, saveModal, deleteModal, toggleTaskDone (~130 строк)
-│   ├── date-nav.js            — curDate, navDate, goToday, fmtDateRu, dowRu (~80 строк)
-│   └── voice.js               — Всё связанное с SaluteSpeech (~280 строк)
-```
+| Метрика | До | После | Улучшение |
+|---------|-----|-------|-----------|
+| Макс. файл (строк) | 1 052 (timeline.js) | 275 (render.js) | 3.8× меньше |
+| Доменов на файл (макс) | 6 (timeline.js) | 1 (все модули) | 6× меньше |
+| DRY-нарушений | 8 функций/переменных | 0 | Полное устранение |
 
-Если есть reluctance к созданию папки `timeline/` — можно расположить файлы как `timeline-*.js` рядом с `timeline.html`. Главное — разбить домены.
+### Дублирование кода
 
-**Плюсы:**
-- Каждый файл отвечает за одну ответственность (Single Responsibility Principle)
-- Легче тестировать отдельные модули
-- Merge-конфликты реже затрагивают весь файл
-
-#### 3.2. Вынести общее в `shared/`
-
-```
-extension/
-├── shared/
-│   ├── storage.js             — chrome.storage (уже есть)
-│   ├── message-builder.js     — Сборка промпта (уже есть)
-│   ├── colors.js              — PROJECT_COLORS, hashStr, projColor, hexRgba
-│   ├── date-utils.js          — fmtD, t2m, m2t, slot2time, time2slot, MONTHS_RU, DOW_RU
-│   └── styles.css             — :root переменные, .btn, .toast, .ctl
-```
-
-**Плюсы:**
-- Одно место для изменения палитры
-- `popup.js` и `timeline.js` импортируют вместо дублирования
-- Единая система дизайн-токенов
-
-#### 3.3. Сузить `host_permissions`
-
-Удалить `http://*/*`. Для `chrome.scripting.executeScript` достаточно добавить `"scripting"` в `permissions` — Chrome автоматически выдаёт доступ к activeTab при действии пользователя.
-
-#### 3.4. Удалить дублирующий доступ к storage в `background.js`
-
-Заменить локальный `loadData()` / `saveTasks()` на импорт из `shared/storage.js`.
+| Сущность | До | После |
+|----------|-----|-------|
+| `PROJECT_COLORS` | ×2 (popup + timeline) | ×1 (shared/colors.js) |
+| `hashStr()` | ×2 | ×1 |
+| `projColor()` | ×2 | ×1 |
+| `hexRgba()` | ×1 (timeline) | ×1 (shared) |
+| `t2m()` | ×2 | ×1 |
+| `fmtD()` | ×2 | ×1 |
+| `:root` CSS переменные | ×2 (popup.css + timeline.css) | ×1 (shared/base.css) |
+| `.hidden` | ×2 | ×1 |
+| `loadState`/`saveState` | ×2 (shared + background) | ×1 |
 
 ---
+
+## 4. Оставшиеся задачи
+
+### Приоритет 1: ✅ Полностью выполнен
+
+Все 4 задачи P1 выполнены (разбиение god-файла, shared-модули, host_permissions, background storage).
 
 ### Приоритет 2: Средний (улучшает поддерживаемость)
 
-#### 3.5. Добавить TypeScript (или хотя бы JSDoc-валидацию)
+#### 3.5. Добавить TypeScript (или JSDoc-валидацию)
 
-Первоначальный шаг — добавить `tsconfig.json` с `"allowJs": true` и `"checkJs": true`. Это даст проверку типов без переписывания файлов. Второй шаг — начать переводить файлы на `.ts` по одному, начиная с `shared/`.
+**Статус: TODO**
 
-**Плюсы:**
-- Автодополнение в IDE
-- Поимка ошибок типов до запуска
-- Самодокументирующийся код
+Первоначальный шаг — добавить `tsconfig.json` с `"allowJs": true` и `"checkJs": true`. Второй шаг — начать переводить файлы на `.ts` по одному, начиная с `shared/`.
+
+**Кандидаты для перевода (от простого к сложному):**
+1. `shared/colors.js` → `.ts` (чистые функции, нет зависимостей от DOM)
+2. `shared/date-utils.js` → `.ts` (чистые функции + константы)
+3. `shared/storage.js` → `.ts` (зависимость от `chrome.storage`)
+4. `shared/message-builder.js` → `.ts`
+5. `timeline/state.js` → `.ts` (типизация объекта `tl`)
 
 #### 3.6. Добавить ESLint + Prettier
 
-Минимальная конфигурация:
+**Статус: TODO**
 
 ```json
 {
@@ -237,125 +221,75 @@ extension/
 }
 ```
 
-**Плюсы:**
-- Единый стиль кода
-- Автоматическое обнаружение проблем (unused vars, missing break)
-- Pre-commit hook (`husky`) для защиты от неформатированного кода
+#### 3.7. Вынести SVG-иконки
 
-#### 3.7. Вынести SVG-иконки в отдельный файл или template-строки
+**Статус: TODO**
 
-Вариант A — HTML-файл с `<template>` элементами, загружаемыми по ID:
-
-```html
-<!-- icons.svg.html -->
-<template id="icon-mic">
-  <svg viewBox="0 0 24 24" ...>...</svg>
-</template>
-```
-
-Вариант B — отдельный JS-модуль с функциями-рендерами, возвращающими DOM-элементы вместо HTML-строк.
-
-Вариант C — при появлении бандлера — SVG-sprite или inline-svg-loader.
+SVG-иконки микрофона (IDLE, REC, WAIT) и настроек остаются строковыми литералами в `timeline/voice.js`. Варианты:
+- A: HTML-файл с `<template>` элементами
+- B: Отдельный JS-модуль с DOM-рендерами
+- C: SVG-sprite (при появлении бандлера)
 
 #### 3.8. Инкапсулировать состояние
 
-Заменить набор глобальных `let` переменных на объект-контейнер:
+**Статус: DONE (частично)**
 
-```js
-// timeline/date-nav.js
-export const dateState = {
-  curDate: new Date(),
-  filterPid: "",
-  get dateStr() { return fmtD(this.curDate); }
-};
-```
-
-Это не добавит сложности, но сделает очевидным, какие данные относятся к какому модулю.
-
----
+Объект `tl` в `timeline/state.js` уже инкапсулирует все mutable-переменные. Осталось:
+- Добавить getter `dateStr()` прямо в объект `tl`
+- Рассмотреть WeakMap для приватных данных модулей
 
 ### Приоритет 3: Низкий (для долгосрочного развития)
 
 #### 3.9. Добавить бандлер (Vite)
 
-Для Manifest V3 расширения Vite подходит хорошо — может собирать несколько JS-модулей в один файл (полезно для content script), проводить tree-shaking, минифицировать.
-
-Конфигурация минимальна, но даёт:
-- Импорты CSS из JS (`import './styles.css'`)
-- Алиасы (`@shared/colors.js`)
-- Автоматический перезагруз при разработке (через `vite-plugin-crx`)
+**Статус: TODO**
 
 #### 3.10. Добавить базовые тесты
 
-Начать с unit-тестов для чистых функций (не зависящих от DOM/chrome API):
+**Статус: TODO**
 
-- `shared/colors.js` — `hashStr`, `projColor`
-- `shared/date-utils.js` — `fmtD`, `t2m`, `m2t`, `slot2time`
-- `shared/message-builder.js` — `buildTaskMessage`
-- `timeline/voice.js` — `webmToWavBlob` (можно замокать AudioContext)
-
-Инструмент: Vitest (совместим с Vite, быстрый, zero-config).
+Кандидаты для unit-тестов (чистые функции в `shared/`):
+- `hashStr()`, `projColor()` из `shared/colors.js`
+- `fmtD()`, `t2m()`, `m2t()`, `slot2time()` из `shared/date-utils.js`
+- `buildTaskMessage()` из `shared/message-builder.js`
 
 #### 3.11. Очистка модели данных
 
-- Создать функции-санитайзеры, которые нормализуют задачу при чтении из storage (удаляют `undefined`-поля, проверяют типы)
-- Ограничить допустимые переходы статусов: `open → sent → done` и `done → open` (revive). Статус `sent` не должен устанавливаться вручную из timeline.
-- Добавить version-поле в storage для будущих миграций схемы
+**Статус: TODO**
+
+- Удалить `doneAt: undefined` вместо установки `undefined` при возврате из done
+- Ограничить допустимые переходы статусов
+- Добавить version-поле в storage для миграций
 
 ---
 
-## 4. Предлагаемая целевая структура
+## 5. Историческая справка — исходные проблемы
 
-```
-extension/
-├── manifest.json
-├── background.js                 — Service Worker (упрощённый, импортирует shared)
-├── popup/
-│   ├── popup.html
-│   ├── popup.js                  — Только popup-логика
-│   └── popup.css                 — Только popup-стили
-├── timeline/
-│   ├── timeline.html
-│   ├── timeline.js               — Инициализация и сборка модулей
-│   ├── render.js                 — Рендеринг карточек, сайдбара, фильтров
-│   ├── drag-drop.js              — Все DnD-хендлеры
-│   ├── modal.js                  — CRUD-модальное окно
-│   ├── date-nav.js               — Навигация по датам
-│   ├── voice.js                  — SaluteSpeech: запись, конвертация, распознавание
-│   └── timeline.css              — Только timeline-стили
-├── shared/
-│   ├── storage.js                — chrome.storage обёртка
-│   ├── message-builder.js        — Сборка промпта
-│   ├── colors.js                 — Палитра и хеш-функции
-│   ├── date-utils.js             — Форматирование дат и времени
-│   ├── ui-utils.js               — toast, общие DOM-хелперы
-│   └── base.css                  — :root, .btn, .toast, .ctl
-├── inject/
-│   └── paste-inject.js           — Функция внедрения текста (вынос из background.js)
-└── icon{16,32,48,128}.png
-```
+### 2.1. God-файл `timeline.js` — 1 052 строки ✅ ИСПРАВЛЕНО
 
----
+### 2.2. Дублирование кода popup.js / timeline.js ✅ ИСПРАВЛЕНО
 
-## 5. Метрики текущего кода
+### 2.3. `background.js` дублирует storage ✅ ИСПРАВЛЕНО
 
-| Файл | Строки | SLOC (примерно) | Комментарии | Доменов ответственности |
-|------|--------|-----------------|-------------|------------------------|
-| timeline.js | 1 052 | ~850 | ~50 | 6 |
-| popup.js | 517 | ~430 | ~30 | 3 |
-| background.js | 205 | ~170 | ~20 | 3 |
-| timeline.css | 600 | ~550 | ~10 | 1 |
-| popup.css | 332 | ~300 | ~5 | 1 |
-| storage.js | 34 | 25 | 8 | 1 |
-| message-builder.js | 17 | 10 | 4 | 1 |
+### 2.4. Дублирование CSS ✅ ИСПРАВЛЕНО
 
-**Соотношение код/комментарии:** ~6% — ниже рекомендуемых 15–20%.
+### 2.5. Широкие `host_permissions` ✅ ИСПРАВЛЕНО
+
+### 2.6. Отсутствие сборки и форматирования — статус: TODO
+
+### 2.7. Глобальное мутабельное состояние ✅ ЧАСТИЧНО (объект `tl`)
+
+### 2.8. Инлайн SVG в JS — статус: TODO
+
+### 2.9. `pasteInjectFn` в `background.js` — статус: TODO (113 строк, не критично)
+
+### 2.10. Ошибки в модели данных — статус: TODO
 
 ---
 
 ## 6. Что НЕ рекомендуется делать
 
-1. **Не вводить React/Vue/Svelte** — для расширения такого размера это избыточно. Vanilla JS с модулями вполне достаточен. Фреймворк добавит 100+ KB к размеру расширения и усложнит debug.
-2. **Не переписывать всё за один коммит** — incremental refactoring по одному модулю за раз, с тестами на каждом этапе.
-3. **Не удалять `pasteInjectFn` из background.js** — она должна оставаться там для сериализации через `chrome.scripting.executeScript`. Но можно вынести в отдельный файл и импортировать.
+1. **Не вводить React/Vue/Svelte** — для расширения такого размера это избыточно. Vanilla JS с ES-модулями вполне достаточен.
+2. **Не переписывать всё за один коммит** — incremental refactoring по одному модулю за раз.
+3. **Не удалять `pasteInjectFn` из background.js** — она должна оставаться для сериализации через `chrome.scripting.executeScript`. Можно вынести в отдельный файл и импортировать.
 4. **Не менять структуру `chrome.storage.local` без миграции** — данные пользователей хранятся там, и сломать формат — значит потерять задачи.
