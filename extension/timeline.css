@@ -209,6 +209,10 @@ body {
  opacity: .3;
  transform: scale(.95);
 }
+.unscheduled-panel.sidebar-drag-over {
+ border-color: var(--accent);
+ background: rgba(61,139,253,.08);
+}
 .unscheduled-card .uc-proj {
  font-size: 10px;
  font-weight: 600;

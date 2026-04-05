@@ -128,11 +128,6 @@ function buildSlotGrid() {
     s.dataset.slot = i;
     if (i % PER_HOUR === 0) s.classList.add("hour-mark");
 
-    // Drag & drop targets
-    s.addEventListener("dragover", onSlotDragOver);
-    s.addEventListener("dragleave", onSlotDragLeave);
-    s.addEventListener("drop", (e) => onSlotDrop(e, i));
-
     // Double-click to add task at this slot
     s.addEventListener("dblclick", () => openModal("add", i));
 
@@ -487,7 +482,12 @@ function onCardDragStart(e, taskId) {
   dragId = taskId;
   e.dataTransfer.effectAllowed = "move";
   e.dataTransfer.setData("text/plain", taskId);
-  requestAnimationFrame(() => e.target.classList.add("dragging"));
+  // Defer visual change so browser captures clean drag ghost
+  const el = e.target;
+  setTimeout(() => el.classList.add("dragging"), 0);
+
+  // Disable pointer-events on ALL task cards so they don't steal dragover/drop
+  document.querySelectorAll(".task-card").forEach((c) => { c.style.pointerEvents = "none"; });
 
   $("btnPrevDay").classList.add("drop-target");
   $("btnNextDay").classList.add("drop-target");
@@ -496,42 +496,102 @@ function onCardDragStart(e, taskId) {
 function onCardDragEnd(e) {
   dragId = null;
   e.target.classList.remove("dragging");
+  // Restore pointer-events on task cards
+  document.querySelectorAll(".task-card").forEach((c) => { c.style.pointerEvents = ""; });
   $("btnPrevDay").classList.remove("drop-target", "drop-hover");
   $("btnNextDay").classList.remove("drop-target", "drop-hover");
-  // Clean slot highlights
+  clearSlotHighlight();
+  $("unscheduledPanel").classList.remove("sidebar-drag-over");
+}
+
+function getSlotFromY(clientY) {
+  const grid = $("slotGrid");
+  const rect = grid.getBoundingClientRect();
+  const y = clientY - rect.top;
+  return Math.max(0, Math.min(TOTAL_SLOTS - 1, Math.floor(y / SLOT_H)));
+}
+
+function highlightSlot(index) {
+  clearSlotHighlight();
+  const slots = $("slotGrid").children;
+  if (slots[index]) slots[index].classList.add("drag-over");
+}
+
+function clearSlotHighlight() {
   document.querySelectorAll(".slot.drag-over").forEach((s) => s.classList.remove("drag-over"));
-  // Also clean unscheduled cards
-  document.querySelectorAll(".unscheduled-card.dragging").forEach((c) => c.classList.remove("dragging"));
 }
 
-function onSlotDragOver(e) {
-  if (!dragId) return;
-  e.preventDefault();
-  e.dataTransfer.dropEffect = "move";
-  const slot = e.currentTarget;
-  slot.classList.add("drag-over");
+/** Attach drop handlers to bodyCol (parent of both slots and task cards) */
+function setupTimelineDrop() {
+  const bodyCol = $("bodyCol");
+
+  bodyCol.addEventListener("dragover", (e) => {
+    if (!dragId) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "move";
+    highlightSlot(getSlotFromY(e.clientY));
+  });
+
+  bodyCol.addEventListener("dragleave", (e) => {
+    // Only clear if leaving bodyCol entirely (not into a child)
+    if (!bodyCol.contains(e.relatedTarget)) {
+      clearSlotHighlight();
+    }
+  });
+
+  bodyCol.addEventListener("drop", async (e) => {
+    if (!dragId) return;
+    e.preventDefault();
+    clearSlotHighlight();
+
+    const slotIndex = getSlotFromY(e.clientY);
+    const newTime = slot2time(slotIndex);
+    const ds = curDateStr();
+
+    const s = await loadState();
+    s.tasks = s.tasks.map((t) =>
+      t.id === dragId ? { ...t, scheduledDate: ds, scheduledTime: newTime, duration: t.duration || 1 } : t
+    );
+    await saveState({ tasks: s.tasks });
+    state = s;
+    renderCards();
+    renderUnscheduled();
+    toast("Задача перемещена", "ok");
+  });
 }
 
-function onSlotDragLeave(e) {
-  e.currentTarget.classList.remove("drag-over");
-}
+/** Drop on sidebar unscheduled panel — removes schedule from a task */
+function setupSidebarDrop() {
+  const panel = $("unscheduledPanel");
 
-async function onSlotDrop(e, slotIndex) {
-  if (!dragId) return;
-  e.preventDefault();
-  e.currentTarget.classList.remove("drag-over");
+  panel.addEventListener("dragover", (e) => {
+    if (!dragId) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "move";
+    panel.classList.add("sidebar-drag-over");
+  });
 
-  const s = await loadState();
-  const newTime = slot2time(slotIndex);
-  const ds = curDateStr();
-  s.tasks = s.tasks.map((t) =>
-    t.id === dragId ? { ...t, scheduledDate: ds, scheduledTime: newTime, duration: t.duration || 1 } : t
-  );
-  await saveState({ tasks: s.tasks });
-  state = s;
-  renderCards();
-  renderUnscheduled();
-  toast("Задача перемещена", "ok");
+  panel.addEventListener("dragleave", (e) => {
+    if (!panel.contains(e.relatedTarget)) {
+      panel.classList.remove("sidebar-drag-over");
+    }
+  });
+
+  panel.addEventListener("drop", async (e) => {
+    if (!dragId) return;
+    e.preventDefault();
+    panel.classList.remove("sidebar-drag-over");
+
+    const s = await loadState();
+    s.tasks = s.tasks.map((t) =>
+      t.id === dragId ? { ...t, scheduledDate: undefined, scheduledTime: undefined } : t
+    );
+    await saveState({ tasks: s.tasks });
+    state = s;
+    renderCards();
+    renderUnscheduled();
+    toast("Задача убрана из расписания", "ok");
+  });
 }
 
 /* Day drop (prev / next) */
@@ -619,28 +679,10 @@ function init() {
     }
   });
 
+  setupTimelineDrop();
+  setupSidebarDrop();
   setupDayDrop($("btnPrevDay"), -1);
   setupDayDrop($("btnNextDay"), 1);
-
-  // Make the entire unscheduled list also a drop target (to unschedule a task by dragging back)
-  $("unscheduledList").addEventListener("dragover", (e) => {
-    if (!dragId) return;
-    e.preventDefault();
-    e.dataTransfer.dropEffect = "move";
-  });
-  $("unscheduledList").addEventListener("drop", async (e) => {
-    if (!dragId) return;
-    e.preventDefault();
-    const s = await loadState();
-    s.tasks = s.tasks.map((t) =>
-      t.id === dragId ? { ...t, scheduledDate: undefined, scheduledTime: undefined } : t
-    );
-    await saveState({ tasks: s.tasks });
-    state = s;
-    renderCards();
-    renderUnscheduled();
-    toast("Задача убрана из расписания", "ok");
-  });
 
   buildTimeLabels();
   buildSlotGrid();
