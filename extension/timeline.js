@@ -886,7 +886,7 @@ async function transcribeWithSber(audioBlob) {
       method: "POST",
       headers: {
         "Authorization": `Bearer ${accessToken}`,
-        "Content-Type": "audio/wav",
+        "Content-Type": "audio/x-pcm;bit=16;rate=16000",
       },
       body: wavBlob,
     });
