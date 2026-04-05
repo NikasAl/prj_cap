@@ -482,9 +482,10 @@ function onCardDragStart(e, taskId) {
   dragId = taskId;
   e.dataTransfer.effectAllowed = "move";
   e.dataTransfer.setData("text/plain", taskId);
+  // Find the actual card element (e.target may be a child span/div)
+  const card = e.target.closest(".task-card, .unscheduled-card");
   // Defer visual change so browser captures clean drag ghost
-  const el = e.target;
-  setTimeout(() => el.classList.add("dragging"), 0);
+  if (card) setTimeout(() => card.classList.add("dragging"), 0);
 
   // Disable pointer-events on ALL task cards so they don't steal dragover/drop
   document.querySelectorAll(".task-card").forEach((c) => { c.style.pointerEvents = "none"; });
@@ -494,8 +495,11 @@ function onCardDragStart(e, taskId) {
 }
 
 function onCardDragEnd(e) {
+  // dragId may already be null if consumed by a drop handler — that's fine
   dragId = null;
-  e.target.classList.remove("dragging");
+  // Find the actual card element (e.target may be a child span/div)
+  const card = e.target.closest(".task-card, .unscheduled-card");
+  if (card) card.classList.remove("dragging");
   // Restore pointer-events on task cards
   document.querySelectorAll(".task-card").forEach((c) => { c.style.pointerEvents = ""; });
   $("btnPrevDay").classList.remove("drop-target", "drop-hover");
@@ -540,7 +544,12 @@ function setupTimelineDrop() {
   });
 
   bodyCol.addEventListener("drop", async (e) => {
-    if (!dragId) return;
+    // Capture dragId immediately BEFORE any await — dragend fires during
+    // the first await and resets the global dragId to null otherwise.
+    const taskId = dragId;
+    if (!taskId) return;
+    dragId = null;
+
     e.preventDefault();
     clearSlotHighlight();
 
@@ -550,7 +559,7 @@ function setupTimelineDrop() {
 
     const s = await loadState();
     s.tasks = s.tasks.map((t) =>
-      t.id === dragId ? { ...t, scheduledDate: ds, scheduledTime: newTime, duration: t.duration || 1 } : t
+      t.id === taskId ? { ...t, scheduledDate: ds, scheduledTime: newTime, duration: t.duration || 1 } : t
     );
     await saveState({ tasks: s.tasks });
     state = s;
@@ -578,13 +587,17 @@ function setupSidebarDrop() {
   });
 
   panel.addEventListener("drop", async (e) => {
-    if (!dragId) return;
+    // Capture dragId immediately BEFORE any await
+    const taskId = dragId;
+    if (!taskId) return;
+    dragId = null;
+
     e.preventDefault();
     panel.classList.remove("sidebar-drag-over");
 
     const s = await loadState();
     s.tasks = s.tasks.map((t) =>
-      t.id === dragId ? { ...t, scheduledDate: undefined, scheduledTime: undefined } : t
+      t.id === taskId ? { ...t, scheduledDate: undefined, scheduledTime: undefined } : t
     );
     await saveState({ tasks: s.tasks });
     state = s;
@@ -604,12 +617,16 @@ function setupDayDrop(btn, deltaDays) {
   });
   btn.addEventListener("dragleave", () => btn.classList.remove("drop-hover"));
   btn.addEventListener("drop", async (e) => {
-    if (!dragId) return;
+    // Capture dragId immediately BEFORE any await
+    const taskId = dragId;
+    if (!taskId) return;
+    dragId = null;
+
     e.preventDefault();
     btn.classList.remove("drop-hover");
 
     const s = await loadState();
-    const task = s.tasks.find((t) => t.id === dragId);
+    const task = s.tasks.find((t) => t.id === taskId);
     if (!task) return;
 
     const targetDate = new Date(curDateStr() + "T00:00:00");
@@ -620,7 +637,7 @@ function setupDayDrop(btn, deltaDays) {
     const time = task.scheduledTime || "09:00";
 
     s.tasks = s.tasks.map((t) =>
-      t.id === dragId ? { ...t, scheduledDate: targetDs, scheduledTime: time, duration: t.duration || 1 } : t
+      t.id === taskId ? { ...t, scheduledDate: targetDs, scheduledTime: time, duration: t.duration || 1 } : t
     );
     await saveState({ tasks: s.tasks });
 
