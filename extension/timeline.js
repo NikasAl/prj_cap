@@ -1025,8 +1025,8 @@ function init() {
       if (e.key === "t" || e.key === "T" || e.key === "з" || e.key === "З") goToday();
     } else {
       if (e.key === "Escape") closeModal();
-      // Voice dictation: Ctrl+Shift+M (or Ctrl+Shift+Э in Russian layout)
-      if ((e.ctrlKey || e.metaKey) && e.shiftKey && (e.key === "M" || e.key === "m" || e.key === "Э" || e.key === "э")) {
+      // Voice dictation: Ctrl+' (or Ctrl+э in Russian layout)
+      if ((e.ctrlKey || e.metaKey) && (e.key === "э" || e.key === "'")) {
         e.preventDefault();
         if (isRecording) stopRecording();
         else startRecording();
