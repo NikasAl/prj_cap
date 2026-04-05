@@ -330,3 +330,12 @@ body {
 }
 
 .hidden { display: none; }
+
+/* ── Data section ── */
+.data-hint {
+  margin: 8px 0 0;
+  font-size: 11px;
+  color: var(--muted);
+  line-height: 1.4;
+  opacity: .8;
+}

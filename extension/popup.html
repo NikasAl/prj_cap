@@ -70,6 +70,20 @@
       </div>
     </section>
 
+    <section class="panel collapsible">
+      <button type="button" class="collapse-toggle" id="toggleDataSection" aria-expanded="false">
+        Данные: импорт / экспорт
+      </button>
+      <div id="dataSectionWrap" class="collapse-body hidden">
+        <div class="row gap">
+          <button type="button" id="btnExportData" class="btn">Экспорт (JSON)</button>
+          <button type="button" id="btnImportData" class="btn">Импорт (JSON)</button>
+        </div>
+        <p class="data-hint">Экспорт сохраняет все проекты и задачи в файл. Импорт добавляет данные к существующим (без перезаписи).</p>
+        <input type="file" id="importFileInput" accept=".json" class="hidden" />
+      </div>
+    </section>
+
     <script type="module" src="popup.js"></script>
   </body>
 </html>

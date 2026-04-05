@@ -31,6 +31,11 @@ const el = {
   feedList: document.getElementById("feedList"),
   feedCount: document.getElementById("feedCount"),
   feedEmpty: document.getElementById("feedEmpty"),
+  toggleDataSection: document.getElementById("toggleDataSection"),
+  dataSectionWrap: document.getElementById("dataSectionWrap"),
+  btnExportData: document.getElementById("btnExportData"),
+  btnImportData: document.getElementById("btnImportData"),
+  importFileInput: /** @type {HTMLInputElement} */ (document.getElementById("importFileInput")),
 };
 
 /* ── Helpers ── */
@@ -499,6 +504,94 @@ el.btnOpenPaste.addEventListener("click", async () => {
 el.toggleProjectForm.addEventListener("click", () => {
   const open = el.projectFormWrap.classList.toggle("hidden") === false;
   el.toggleProjectForm.setAttribute("aria-expanded", open ? "true" : "false");
+});
+
+/* ── Data import / export ── */
+
+const EXPORT_VERSION = 1;
+
+el.toggleDataSection.addEventListener("click", () => {
+  const open = el.dataSectionWrap.classList.toggle("hidden") === false;
+  el.toggleDataSection.setAttribute("aria-expanded", open ? "true" : "false");
+});
+
+el.btnExportData.addEventListener("click", async () => {
+  const state = await loadState();
+  const payload = {
+    _version: EXPORT_VERSION,
+    _exportedAt: new Date().toISOString(),
+    projects: state.projects,
+    tasks: state.tasks,
+  };
+  const json = JSON.stringify(payload, null, 2);
+  const blob = new Blob([json], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `prjcap-backup-${fmtD(new Date())}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+  setStatus(`Экспорт: ${state.projects.length} проектов, ${state.tasks.length} задач.`, "ok");
+});
+
+el.btnImportData.addEventListener("click", () => {
+  el.importFileInput.click();
+});
+
+el.importFileInput.addEventListener("change", async (e) => {
+  const file = e.target.files?.[0];
+  if (!file) return;
+  el.importFileInput.value = ""; // reset so same file can be re-imported
+
+  try {
+    const text = await file.text();
+    const data = JSON.parse(text);
+
+    if (!Array.isArray(data.projects) || !Array.isArray(data.tasks)) {
+      setStatus("Неверный формат файла: отсутствуют projects или tasks.", "err");
+      return;
+    }
+
+    const state = await loadState();
+
+    // Build existing ID sets to avoid duplicates
+    const existingProjectIds = new Set(state.projects.map((p) => p.id));
+    const existingTaskIds = new Set(state.tasks.map((t) => t.id));
+
+    let addedProjects = 0;
+    let addedTasks = 0;
+
+    // Add projects that don't exist yet (match by id or by name+url)
+    for (const p of data.projects) {
+      if (!p.id || !p.name) continue;
+      const existsById = existingProjectIds.has(p.id);
+      const existsByName = state.projects.some(
+        (ep) => ep.name === p.name && ep.chatUrl === p.chatUrl
+      );
+      if (!existsById && !existsByName) {
+        state.projects.push(p);
+        existingProjectIds.add(p.id);
+        addedProjects++;
+      }
+    }
+
+    // Add tasks that don't exist yet (by id)
+    for (const t of data.tasks) {
+      if (!t.id || !t.taskText) continue;
+      if (existingTaskIds.has(t.id)) continue;
+      // Only import if project exists (in current or just imported)
+      if (!existingProjectIds.has(t.projectId)) continue;
+      state.tasks.push(t);
+      existingTaskIds.add(t.id);
+      addedTasks++;
+    }
+
+    await saveState({ projects: state.projects, tasks: state.tasks });
+    await refresh();
+    setStatus(`Импорт: +${addedProjects} проектов, +${addedTasks} задач.`, "ok");
+  } catch (err) {
+    setStatus("Ошибка импорта: " + (err.message || err), "err");
+  }
 });
 
 // Open timeline page
