@@ -80,6 +80,7 @@ async function loadAndRender() {
   renderDateLabel();
   renderFilter();
   renderCards();
+  renderUnscheduled();
   updateNowLine();
 }
 
@@ -136,6 +137,70 @@ function buildSlotGrid() {
     s.addEventListener("dblclick", () => openModal("add", i));
 
     grid.appendChild(s);
+  }
+}
+
+/* ── Unscheduled tasks (sidebar) ── */
+
+function getUnscheduledTasks() {
+  let tasks = state.tasks.filter(
+    (t) => t.status !== "done" && (!t.scheduledDate || !t.scheduledTime)
+  );
+  if (filterPid) tasks = tasks.filter((t) => String(t.projectId) === String(filterPid));
+  return tasks.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+}
+
+function renderUnscheduled() {
+  const list = $("unscheduledList");
+  const emptyEl = $("unscheduledEmpty");
+  const countEl = $("unscheduledCount");
+  list.innerHTML = "";
+
+  const tasks = getUnscheduledTasks();
+  countEl.textContent = tasks.length > 0 ? tasks.length : "";
+
+  if (tasks.length === 0) {
+    emptyEl.classList.remove("hidden");
+    return;
+  }
+  emptyEl.classList.add("hidden");
+
+  for (const t of tasks) {
+    const color = projColor(t.projectId);
+    const proj = state.projects.find((p) => p.id === t.projectId);
+
+    const card = document.createElement("div");
+    card.className = "unscheduled-card";
+    card.style.borderLeftColor = color;
+    card.draggable = true;
+    card.title = t.taskText;
+
+    const pSpan = document.createElement("div");
+    pSpan.className = "uc-proj";
+    pSpan.textContent = proj ? proj.name : "—";
+    pSpan.style.color = color;
+    card.appendChild(pSpan);
+
+    const tDiv = document.createElement("div");
+    tDiv.className = "uc-text";
+    tDiv.textContent = t.taskText;
+    card.appendChild(tDiv);
+
+    const hint = document.createElement("div");
+    hint.className = "uc-hint";
+    hint.textContent = "Перетащите на слот";
+    card.appendChild(hint);
+
+    // Drag from sidebar to timeline
+    card.addEventListener("dragstart", (e) => onCardDragStart(e, t.id));
+    card.addEventListener("dragend", onCardDragEnd);
+
+    // Click to edit
+    card.addEventListener("click", (e) => {
+      if (!card.classList.contains("dragging")) openModal("edit", null, t.id);
+    });
+
+    list.appendChild(card);
   }
 }
 
@@ -297,6 +362,7 @@ function goToday() {
 function onFilterChange() {
   filterPid = $("projectFilter").value;
   renderCards();
+  renderUnscheduled();
 }
 
 /* ═══════════════════ Modal ═══════════════════ */
@@ -411,6 +477,7 @@ async function deleteModal() {
   state = s;
   closeModal();
   renderCards();
+  renderUnscheduled();
   toast("Задача удалена", "ok");
 }
 
@@ -433,6 +500,8 @@ function onCardDragEnd(e) {
   $("btnNextDay").classList.remove("drop-target", "drop-hover");
   // Clean slot highlights
   document.querySelectorAll(".slot.drag-over").forEach((s) => s.classList.remove("drag-over"));
+  // Also clean unscheduled cards
+  document.querySelectorAll(".unscheduled-card.dragging").forEach((c) => c.classList.remove("dragging"));
 }
 
 function onSlotDragOver(e) {
@@ -454,12 +523,14 @@ async function onSlotDrop(e, slotIndex) {
 
   const s = await loadState();
   const newTime = slot2time(slotIndex);
+  const ds = curDateStr();
   s.tasks = s.tasks.map((t) =>
-    t.id === dragId ? { ...t, scheduledDate: curDateStr(), scheduledTime: newTime } : t
+    t.id === dragId ? { ...t, scheduledDate: ds, scheduledTime: newTime, duration: t.duration || 1 } : t
   );
   await saveState({ tasks: s.tasks });
   state = s;
   renderCards();
+  renderUnscheduled();
   toast("Задача перемещена", "ok");
 }
 
@@ -479,14 +550,17 @@ function setupDayDrop(btn, deltaDays) {
 
     const s = await loadState();
     const task = s.tasks.find((t) => t.id === dragId);
-    if (!task || !task.scheduledTime) return;
+    if (!task) return;
 
     const targetDate = new Date(curDateStr() + "T00:00:00");
     targetDate.setDate(targetDate.getDate() + deltaDays);
     const targetDs = fmtD(targetDate);
 
+    // For tasks that had no time, assign 09:00 when moving to another day
+    const time = task.scheduledTime || "09:00";
+
     s.tasks = s.tasks.map((t) =>
-      t.id === dragId ? { ...t, scheduledDate: targetDs } : t
+      t.id === dragId ? { ...t, scheduledDate: targetDs, scheduledTime: time, duration: t.duration || 1 } : t
     );
     await saveState({ tasks: s.tasks });
 
@@ -547,6 +621,26 @@ function init() {
 
   setupDayDrop($("btnPrevDay"), -1);
   setupDayDrop($("btnNextDay"), 1);
+
+  // Make the entire unscheduled list also a drop target (to unschedule a task by dragging back)
+  $("unscheduledList").addEventListener("dragover", (e) => {
+    if (!dragId) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "move";
+  });
+  $("unscheduledList").addEventListener("drop", async (e) => {
+    if (!dragId) return;
+    e.preventDefault();
+    const s = await loadState();
+    s.tasks = s.tasks.map((t) =>
+      t.id === dragId ? { ...t, scheduledDate: undefined, scheduledTime: undefined } : t
+    );
+    await saveState({ tasks: s.tasks });
+    state = s;
+    renderCards();
+    renderUnscheduled();
+    toast("Задача убрана из расписания", "ok");
+  });
 
   buildTimeLabels();
   buildSlotGrid();

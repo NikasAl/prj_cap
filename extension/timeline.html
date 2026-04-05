@@ -25,13 +25,25 @@
     </div>
   </div>
 
-  <div class="timeline-wrap">
-    <div class="timeline-scroll" id="timelineScroll">
-      <div class="time-col" id="timeCol"></div>
-      <div class="body-col" id="bodyCol">
-        <div class="slot-grid" id="slotGrid"></div>
-        <div class="task-layer" id="taskLayer"></div>
-        <div class="now-line" id="nowLine"></div>
+  <div class="main-area">
+    <!-- Unscheduled tasks sidebar -->
+    <div class="unscheduled-panel" id="unscheduledPanel">
+      <div class="unscheduled-hdr">
+        <span>Нераспределённые</span>
+        <span id="unscheduledCount" class="unscheduled-count"></span>
+      </div>
+      <div class="unscheduled-list" id="unscheduledList"></div>
+      <p id="unscheduledEmpty" class="unscheduled-empty hidden">Все задачи расставлены</p>
+    </div>
+
+    <div class="timeline-wrap">
+      <div class="timeline-scroll" id="timelineScroll">
+        <div class="time-col" id="timeCol"></div>
+        <div class="body-col" id="bodyCol">
+          <div class="slot-grid" id="slotGrid"></div>
+          <div class="task-layer" id="taskLayer"></div>
+          <div class="now-line" id="nowLine"></div>
+        </div>
       </div>
     </div>
   </div>
