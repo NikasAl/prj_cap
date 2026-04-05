@@ -662,7 +662,7 @@ function setupDayDrop(btn, deltaDays) {
 
 let recognition = null;
 let isRecording = false;
-let finalTranscript = "";
+let baseText = "";  // text already in textarea when recording started
 
 /** Detect Web Speech API availability and show/hide mic button */
 function initSpeechRecognition() {
@@ -675,59 +675,64 @@ function initSpeechRecognition() {
 
   recognition = new SpeechRecognition();
   recognition.lang = "ru-RU";
-  recognition.continuous = true;
-  recognition.interimResults = true;
+  recognition.continuous = false;   // single-utterance mode; we restart manually on end
+  recognition.interimResults = true; // show live text while speaking
 
   recognition.onresult = (e) => {
-    let interim = "";
-    for (let i = e.resultIndex; i < e.results.length; i++) {
-      const t = e.results[i][0].transcript;
-      if (e.results[i].isFinal) {
-        finalTranscript += (finalTranscript ? " " : "") + t;
-      } else {
-        interim = t;
-      }
+    console.log("[prjcap speech] onresult:", e.results.length, "from:", e.resultIndex);
+    // Collect all spoken text from this recognition session
+    let spoken = "";
+    for (let i = 0; i < e.results.length; i++) {
+      spoken += e.results[i][0].transcript;
     }
+    if (!spoken) return;
+
     const ta = $("mText");
-    const cursor = ta.selectionStart;
-    const before = ta.value;
-    // Append to existing text
-    const base = before.trim();
-    ta.value = base ? `${base} ${finalTranscript}${interim}` : `${finalTranscript}${interim}`;
-    // Auto-scroll textarea to bottom
+    ta.value = baseText ? `${baseText} ${spoken}` : spoken;
     ta.scrollTop = ta.scrollHeight;
   };
 
   recognition.onerror = (e) => {
-    if (e.error === "no-speech") return; // harmless — user just silent
-    console.warn("Speech recognition error:", e.error);
+    console.warn("[prjcap speech] error:", e.error, e.message);
+    if (e.error === "no-speech") return; // harmless — just silence
+    if (e.error === "aborted") return;   // user clicked stop
     stopRecording();
-    if (e.error === "not-allowed") toast("Микрофон недоступен. Разрешите доступ в настройках.", "err");
+    if (e.error === "not-allowed") {
+      toast("Микрофон недоступен. Разрешите доступ в настройках.", "err");
+    } else {
+      toast(`Ошибка распознавания: ${e.error}`, "err");
+    }
   };
 
   recognition.onend = () => {
-    // If we're still in "recording" state, restart (continuous mode workaround)
-    if (isRecording && recognition) {
-      try { recognition.start(); } catch (_) { stopRecording(); }
+    console.log("[prjcap speech] ended, isRecording:", isRecording);
+    if (!isRecording) return;
+    // Commit interim results into baseText so next session appends correctly
+    const ta = $("mText");
+    const current = ta.value.trim();
+    if (current !== baseText) {
+      baseText = current;
     }
+    // Restart for continuous listening
+    setTimeout(() => {
+      if (!isRecording || !recognition) return;
+      try { recognition.start(); } catch (_) { stopRecording(); }
+    }, 100);
   };
 
   btn.addEventListener("click", () => {
-    if (isRecording) {
-      stopRecording();
-    } else {
-      startRecording();
-    }
+    if (isRecording) stopRecording();
+    else startRecording();
   });
 }
 
 function startRecording() {
   if (!recognition) return;
+  // Snapshot what's already in the textarea so we always append to it
+  baseText = $("mText").value.trim();
   isRecording = true;
   $("btnMic").classList.add("recording");
   $("btnMic").textContent = "⏹";
-  recognition.lang = "ru-RU";
-  finalTranscript = "";
   try { recognition.start(); } catch (_) { /* already started */ }
 }
 
