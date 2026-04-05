@@ -84,6 +84,23 @@ async function loadAndRender() {
   updateNowLine();
 }
 
+async function toggleTaskDone(taskId) {
+  const s = await loadState();
+  const t = s.tasks.find((x) => x.id === taskId);
+  if (!t) return;
+  const newStatus = t.status === "done" ? "open" : "done";
+  s.tasks = s.tasks.map((x) =>
+    x.id === taskId
+      ? { ...x, status: newStatus, ...(newStatus === "done" ? { doneAt: new Date().toISOString() } : { doneAt: undefined }) }
+      : x
+  );
+  await saveState({ tasks: s.tasks });
+  state = s;
+  renderCards();
+  renderUnscheduled();
+  toast(newStatus === "done" ? "Задача выполнена" : "Задача возвращена в работу", "ok");
+}
+
 function renderDateLabel() {
   const ds = curDateStr();
   const isToday = ds === fmtD(new Date());
@@ -204,7 +221,7 @@ function renderUnscheduled() {
 function getDayTasks() {
   const ds = curDateStr();
   let tasks = state.tasks.filter(
-    (t) => t.scheduledDate === ds && t.scheduledTime && t.status !== "done"
+    (t) => t.scheduledDate === ds && t.scheduledTime
   );
   if (filterPid) tasks = tasks.filter((t) => String(t.projectId) === String(filterPid));
   return tasks;
@@ -267,7 +284,7 @@ function renderCards() {
     const compact = height < 60;
 
     const card = document.createElement("div");
-    card.className = `task-card${compact ? " card-compact" : ""}`;
+    card.className = `task-card${compact ? " card-compact" : ""}${t.status === "done" ? " card-done" : ""}`;
     card.style.top = `${top}px`;
     card.style.height = `${height}px`;
     card.style.borderLeftColor = color;
@@ -290,6 +307,25 @@ function renderCards() {
     tDiv.className = "card-text";
     tDiv.textContent = t.taskText;
     card.appendChild(tDiv);
+
+    // Status badge
+    if (t.status === "done") {
+      const badge = document.createElement("span");
+      badge.className = "card-badge card-badge-done";
+      badge.textContent = "✓";
+      card.appendChild(badge);
+    } else {
+      const chk = document.createElement("button");
+      chk.type = "button";
+      chk.className = "card-check";
+      chk.title = "Отметить выполненной";
+      chk.innerHTML = "&#9675;";
+      chk.addEventListener("click", (e) => {
+        e.stopPropagation();
+        toggleTaskDone(t.id);
+      });
+      card.appendChild(chk);
+    }
 
     // Time range
     const tmDiv = document.createElement("div");
@@ -392,6 +428,8 @@ function openModal(mode, slotIndex = null, taskId = null) {
     $("mDate").value = t.scheduledDate || curDateStr();
     $("mTime").value = t.scheduledTime || slot2time(slotIndex || 0);
     $("mDuration").value = String(t.duration || 1);
+    $("mStatus").value = t.status || "open";
+    $("mStatusWrap").classList.remove("hidden");
     $("btnMDelete").classList.remove("hidden");
   } else {
     title.textContent = "Новая задача";
@@ -400,6 +438,8 @@ function openModal(mode, slotIndex = null, taskId = null) {
     $("mDate").value = curDateStr();
     $("mTime").value = slotIndex != null ? slot2time(slotIndex) : "09:00";
     $("mDuration").value = "1";
+    $("mStatus").value = "open";
+    $("mStatusWrap").classList.add("hidden");
     $("btnMDelete").classList.add("hidden");
   }
 
@@ -428,9 +468,12 @@ async function saveModal() {
   const s = await loadState();
 
   if (editId) {
+    const newStatus = $("mStatus").value;
     s.tasks = s.tasks.map((t) =>
       t.id === editId
-        ? { ...t, projectId: pid, taskText: text, scheduledDate: date, scheduledTime: time, duration: dur }
+        ? { ...t, projectId: pid, taskText: text, scheduledDate: date, scheduledTime: time, duration: dur, status: newStatus,
+            ...(newStatus === "done" ? { doneAt: new Date().toISOString() } : {}),
+            ...(newStatus !== "done" ? { doneAt: undefined } : {}) }
         : t
     );
     toast("Задача обновлена", "ok");

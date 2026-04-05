@@ -356,6 +356,64 @@ body {
 .task-card.card-compact .card-proj { display: none; }
 .task-card.card-compact .card-time { display: none; }
 
+/* ── Done task card ── */
+.task-card.card-done {
+  opacity: .55;
+}
+.task-card.card-done .card-text {
+  text-decoration: line-through;
+  text-decoration-color: var(--muted);
+}
+.task-card.card-done:hover {
+  opacity: .75;
+}
+
+/* ── Status check/badge on card ── */
+.card-check {
+  position: absolute;
+  top: 4px;
+  right: 6px;
+  width: 18px; height: 18px;
+  padding: 0;
+  border: 1.5px solid var(--muted);
+  border-radius: 50%;
+  background: transparent;
+  color: var(--muted);
+  font-size: 11px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+  opacity: 0;
+  transition: opacity .15s, border-color .15s, background .15s;
+}
+.task-card:hover .card-check { opacity: 1; }
+.card-check:hover {
+  border-color: var(--ok);
+  background: rgba(62,207,142,.15);
+  color: var(--ok);
+}
+
+.card-badge {
+  position: absolute;
+  top: 4px;
+  right: 6px;
+  width: 18px; height: 18px;
+  border-radius: 50%;
+  font-size: 11px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+  pointer-events: none;
+}
+.card-badge-done {
+  background: var(--ok);
+  color: #0f1419;
+  font-weight: 700;
+}
+
 /* ── Now line ── */
 .now-line {
   position: absolute;
