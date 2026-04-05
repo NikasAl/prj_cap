@@ -658,7 +658,7 @@ function setupDayDrop(btn, deltaDays) {
   });
 }
 
-/* ═══════════════════ Voice dictation (MediaRecorder + Groq Whisper) ═══════════════════ */
+/* ═══════════════════ Voice dictation (MediaRecorder + SaluteSpeech) ═══════════════════ */
 
 let mediaRecorder = null;
 let audioChunks = [];
@@ -667,7 +667,8 @@ let isRecording = false;
 let recordTimer = null;
 let recordSeconds = 0;
 
-const GROQ_API_URL = "https://api.groq.com/openai/v1/audio/transcriptions";
+const SBER_TOKEN_URL = "https://ngw.devices.sberbank.ru:9443/api/v2/oauth";
+const SBER_RECOGNIZE_URL = "https://smartspeech.sber.ru/rest/v1/speech:recognize";
 
 /** Detect MediaRecorder support */
 function initVoiceInput() {
@@ -685,39 +686,99 @@ function initVoiceInput() {
   if (btnSettings) {
     btnSettings.addEventListener("click", (e) => {
       e.stopPropagation();
-      promptGroqApiKey();
+      promptSberCredentials();
     });
   }
 }
 
-async function getGroqApiKey() {
-  const d = await chrome.storage.local.get("groqApiKey");
-  return d.groqApiKey || "";
+async function getSberCredentials() {
+  const d = await chrome.storage.local.get(["sberClientId", "sberClientSecret"]);
+  return { clientId: d.sberClientId || "", clientSecret: d.sberClientSecret || "" };
 }
 
-async function promptGroqApiKey() {
-  const current = await getGroqApiKey();
-  const key = prompt(
-    "Введите API ключ Groq (бесплатно на console.groq.com):\n" +
-    "1. Зарегистрируйтесь на console.groq.com\n" +
-    "2. Создайте API ключ в разделе API Keys\n" +
-    "3. Вставьте его сюда",
-    current || ""
+async function promptSberCredentials() {
+  const creds = await getSberCredentials();
+  const clientId = prompt(
+    "Client ID ( studio.sber.ru → проект SaluteSpeech → Авторизационные данные ):",
+    creds.clientId || ""
   );
-  if (key === null) return; // cancelled
-  if (key.trim()) {
-    await chrome.storage.local.set({ groqApiKey: key.trim() });
-    toast("API ключ сохранён", "ok");
-  } else {
-    await chrome.storage.local.remove("groqApiKey");
-    toast("API ключ удалён", "ok");
+  if (clientId === null) return;
+  if (!clientId.trim()) {
+    await chrome.storage.local.remove(["sberClientId", "sberClientSecret"]);
+    toast("Данные Сбера удалены", "ok");
+    return;
   }
+  const clientSecret = prompt("Client Secret:", creds.clientSecret || "");
+  if (clientSecret === null) return;
+  await chrome.storage.local.set({ sberClientId: clientId.trim(), sberClientSecret: clientSecret.trim() });
+  toast("Данные Сбера сохранены", "ok");
+}
+
+/** Obtain a SaluteSpeech access token (valid 30 min) */
+async function getSberAccessToken(clientId, clientSecret) {
+  const basicAuth = btoa(`${clientId}:${clientSecret}`);
+  const resp = await fetch(`${SBER_TOKEN_URL}?scope=SALUTE_SPEECH_PERS`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/x-www-form-urlencoded",
+      "Accept": "application/json",
+      "Authorization": `Basic ${basicAuth}`,
+      "RqUID": crypto.randomUUID(),
+    },
+  });
+  if (!resp.ok) {
+    throw new Error(`Token request failed: ${resp.status}`);
+  }
+  const data = await resp.json();
+  return data.access_token;
+}
+
+/** Convert WebM/Opus to WAV 16kHz mono PCM (SaluteSpeech requirement) */
+function webmToWavBlob(webmBlob) {
+  return new Promise((resolve) => {
+    const audioCtx = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 16000 });
+    const reader = new FileReader();
+    reader.onload = async () => {
+      const audioBuffer = await audioCtx.decodeAudioData(reader.result);
+      // Take first channel only, resample to 16kHz
+      const offlineCtx = new OfflineAudioContext(1, audioBuffer.duration * 16000, 16000);
+      const source = offlineCtx.createBufferSource();
+      source.buffer = audioBuffer;
+      source.connect(offlineCtx.destination);
+      source.start();
+      const renderedBuffer = await offlineCtx.startRendering();
+      const pcm = renderedBuffer.getChannelData(0);
+      // Encode as WAV
+      const wavBuf = new ArrayBuffer(44 + pcm.length * 2);
+      const view = new DataView(wavBuf);
+      const writeStr = (offset, str) => { for (let i = 0; i < str.length; i++) view.setUint8(offset + i, str.charCodeAt(i)); };
+      writeStr(0, "RIFF");
+      view.setUint32(4, 36 + pcm.length * 2, true);
+      writeStr(8, "WAVE");
+      writeStr(12, "fmt ");
+      view.setUint32(16, 16, true);
+      view.setUint16(20, 1, true); // PCM
+      view.setUint16(22, 1, true); // mono
+      view.setUint32(24, 16000, true);
+      view.setUint32(28, 32000, true);
+      view.setUint16(32, 2, true);
+      view.setUint16(34, 16, true);
+      writeStr(36, "data");
+      view.setUint32(40, pcm.length * 2, true);
+      for (let i = 0; i < pcm.length; i++) {
+        const s = Math.max(-1, Math.min(1, pcm[i]));
+        view.setInt16(44 + i * 2, s < 0 ? s * 0x8000 : s * 0x7FFF, true);
+      }
+      resolve(new Blob([wavBuf], { type: "audio/wav" }));
+    };
+    reader.readAsArrayBuffer(webmBlob);
+  });
 }
 
 async function startRecording() {
-  const apiKey = await getGroqApiKey();
-  if (!apiKey) {
-    toast("Нужен API ключ. Нажмите ⚙️ рядом с микрофоном.", "err");
+  const creds = await getSberCredentials();
+  if (!creds.clientId || !creds.clientSecret) {
+    toast("Нужны данные Сбера. Нажмите ⚙️ рядом с микрофоном.", "err");
     return;
   }
 
@@ -732,7 +793,6 @@ async function startRecording() {
 
   audioChunks = [];
 
-  // Prefer webm with opus codec, fallback to default
   const mimeType = MediaRecorder.isTypeSupported("audio/webm;codecs=opus")
     ? "audio/webm;codecs=opus"
     : "audio/webm";
@@ -744,7 +804,6 @@ async function startRecording() {
   };
 
   mediaRecorder.onstop = async () => {
-    // Release mic immediately
     if (micStream) {
       micStream.getTracks().forEach((t) => t.stop());
       micStream = null;
@@ -756,18 +815,17 @@ async function startRecording() {
       return;
     }
 
-    const blob = new Blob(audioChunks, { type: mimeType });
-    console.log("[prjcap voice] recorded blob:", blob.size, "bytes");
-    await transcribeAudio(blob);
+    const rawBlob = new Blob(audioChunks, { type: mimeType });
+    console.log("[prjcap voice] recorded raw:", rawBlob.size, "bytes");
+    await transcribeWithSber(rawBlob);
   };
 
-  mediaRecorder.start(250); // collect chunks every 250ms
+  mediaRecorder.start(250);
   isRecording = true;
   recordSeconds = 0;
   $("btnMic").classList.add("recording");
   $("btnMic").textContent = "⏹";
 
-  // Show recording duration
   recordTimer = setInterval(() => {
     recordSeconds++;
     const m = String(Math.floor(recordSeconds / 60)).padStart(2, "0");
@@ -786,40 +844,68 @@ function stopRecording() {
   clearInterval(recordTimer);
 }
 
-async function transcribeAudio(audioBlob) {
-  const apiKey = await getGroqApiKey();
-  if (!apiKey) { toast("API ключ не настроен", "err"); return; }
+async function transcribeWithSber(audioBlob) {
+  const creds = await getSberCredentials();
+  if (!creds.clientId || !creds.clientSecret) {
+    toast("Данные Сбера не настроены", "err");
+    return;
+  }
 
   $("btnMic").textContent = "⏳";
-  toast("Распознаю речь…", "ok");
-
-  const formData = new FormData();
-  formData.append("file", audioBlob, "recording.webm");
-  formData.append("model", "whisper-large-v3-turbo");
-  formData.append("language", "ru");
-  formData.append("response_format", "text");
+  toast("Подготавливаю аудио…", "ok");
 
   try {
-    const resp = await fetch(GROQ_API_URL, {
-      method: "POST",
-      headers: { Authorization: `Bearer ${apiKey}` },
-      body: formData,
-    });
+    // Convert to WAV 16kHz mono
+    const wavBlob = await webmToWavBlob(audioBlob);
+    console.log("[prjcap voice] converted WAV:", wavBlob.size, "bytes");
 
-    if (!resp.ok) {
-      const errBody = await resp.text();
-      console.warn("[prjcap voice] API error:", resp.status, errBody);
-      if (resp.status === 401) {
-        toast("Неверный API ключ. Нажмите ⚙️ чтобы обновить.", "err");
-      } else {
-        toast(`Ошибка API: ${resp.status}`, "err");
-      }
+    // Limit to 2 MB and 60 seconds — SaluteSpeech constraints
+    if (wavBlob.size > 2 * 1024 * 1024) {
+      toast("Аудио слишком длинное (макс 1 минута)", "err");
+      $("btnMic").textContent = "🎤";
       return;
     }
 
-    const text = await resp.text();
-    console.log("[prjcap voice] transcribed:", JSON.stringify(text));
+    toast("Распознаю речь…", "ok");
 
+    // Get access token
+    let accessToken;
+    try {
+      accessToken = await getSberAccessToken(creds.clientId, creds.clientSecret);
+      console.log("[prjcap voice] token acquired");
+    } catch (err) {
+      console.warn("[prjcap voice] token error:", err);
+      toast("Ошибка авторизации Сбера. Проверьте Client ID/Secret.", "err");
+      $("btnMic").textContent = "🎤";
+      return;
+    }
+
+    // Recognize speech
+    const resp = await fetch(`${SBER_RECOGNIZE_URL}?language=ru-RU&sample_rate=16000`, {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${accessToken}`,
+        "Content-Type": "audio/wav",
+      },
+      body: wavBlob,
+    });
+
+    if (!resp.ok) {
+      const errText = await resp.text();
+      console.warn("[prjcap voice] recognize error:", resp.status, errText);
+      if (resp.status === 401) {
+        toast("Токен отклонён. Проверьте данные Сбера (⚙️).", "err");
+      } else {
+        toast(`Ошибка распознавания: ${resp.status}`, "err");
+      }
+      $("btnMic").textContent = "🎤";
+      return;
+    }
+
+    const data = await resp.json();
+    console.log("[prjcap voice] recognition result:", JSON.stringify(data));
+
+    const text = (data.result || []).join(" ");
     if (text.trim()) {
       const ta = $("mText");
       const base = ta.value.trim();
@@ -830,8 +916,8 @@ async function transcribeAudio(audioBlob) {
       toast("Речь не распознана. Попробуйте ещё раз.", "err");
     }
   } catch (err) {
-    console.warn("[prjcap voice] fetch error:", err);
-    toast("Ошибка сети при распознавании", "err");
+    console.warn("[prjcap voice] error:", err);
+    toast("Ошибка при распознавании: " + err.message, "err");
   } finally {
     $("btnMic").textContent = "🎤";
   }
