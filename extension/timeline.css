@@ -435,6 +435,36 @@ body {
 .modal-actions .btn { flex: 1; }
 .modal-actions .btn.primary { flex: 2; }
 
+/* ── Microphone / voice dictation ── */
+.btn-mic {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px; height: 24px;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  background: transparent;
+  font-size: 13px;
+  cursor: pointer;
+  vertical-align: middle;
+  margin-left: 6px;
+  transition: border-color .2s, background .2s, box-shadow .2s;
+  line-height: 1;
+}
+.btn-mic:hover { border-color: var(--accent); background: rgba(61,139,253,.1); }
+.btn-mic.recording {
+  border-color: var(--danger);
+  background: rgba(232,93,93,.15);
+  animation: mic-pulse 1.2s infinite;
+}
+@keyframes mic-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(232,93,93,.4); }
+  50% { box-shadow: 0 0 0 6px rgba(232,93,93,.0); }
+}
+.btn-mic.hidden { display: none; }
+.area-with-mic { padding-right: 10px; }
+
 /* ── Toast ── */
 .toast {
   position: fixed;

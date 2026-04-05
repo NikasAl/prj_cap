@@ -408,6 +408,7 @@ function openModal(mode, slotIndex = null, taskId = null) {
 }
 
 function closeModal() {
+  cleanupRecording();
   $("modalOverlay").classList.add("hidden");
   editId = null;
 }
@@ -657,6 +658,92 @@ function setupDayDrop(btn, deltaDays) {
   });
 }
 
+/* ═══════════════════ Voice dictation (Web Speech API) ═══════════════════ */
+
+let recognition = null;
+let isRecording = false;
+let finalTranscript = "";
+
+/** Detect Web Speech API availability and show/hide mic button */
+function initSpeechRecognition() {
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  const btn = $("btnMic");
+  if (!SpeechRecognition) {
+    btn.classList.add("hidden");
+    return;
+  }
+
+  recognition = new SpeechRecognition();
+  recognition.lang = "ru-RU";
+  recognition.continuous = true;
+  recognition.interimResults = true;
+
+  recognition.onresult = (e) => {
+    let interim = "";
+    for (let i = e.resultIndex; i < e.results.length; i++) {
+      const t = e.results[i][0].transcript;
+      if (e.results[i].isFinal) {
+        finalTranscript += (finalTranscript ? " " : "") + t;
+      } else {
+        interim = t;
+      }
+    }
+    const ta = $("mText");
+    const cursor = ta.selectionStart;
+    const before = ta.value;
+    // Append to existing text
+    const base = before.trim();
+    ta.value = base ? `${base} ${finalTranscript}${interim}` : `${finalTranscript}${interim}`;
+    // Auto-scroll textarea to bottom
+    ta.scrollTop = ta.scrollHeight;
+  };
+
+  recognition.onerror = (e) => {
+    if (e.error === "no-speech") return; // harmless — user just silent
+    console.warn("Speech recognition error:", e.error);
+    stopRecording();
+    if (e.error === "not-allowed") toast("Микрофон недоступен. Разрешите доступ в настройках.", "err");
+  };
+
+  recognition.onend = () => {
+    // If we're still in "recording" state, restart (continuous mode workaround)
+    if (isRecording && recognition) {
+      try { recognition.start(); } catch (_) { stopRecording(); }
+    }
+  };
+
+  btn.addEventListener("click", () => {
+    if (isRecording) {
+      stopRecording();
+    } else {
+      startRecording();
+    }
+  });
+}
+
+function startRecording() {
+  if (!recognition) return;
+  isRecording = true;
+  $("btnMic").classList.add("recording");
+  $("btnMic").textContent = "⏹";
+  recognition.lang = "ru-RU";
+  finalTranscript = "";
+  try { recognition.start(); } catch (_) { /* already started */ }
+}
+
+function stopRecording() {
+  if (!recognition) return;
+  isRecording = false;
+  $("btnMic").classList.remove("recording");
+  $("btnMic").textContent = "🎤";
+  try { recognition.stop(); } catch (_) {}
+}
+
+/** Stop recording if active when modal closes */
+function cleanupRecording() {
+  stopRecording();
+}
+
 /* ═══════════════════ Toast ═══════════════════ */
 
 let toastTimer = null;
@@ -708,6 +795,7 @@ function init() {
   setupDayDrop($("btnPrevDay"), -1);
   setupDayDrop($("btnNextDay"), 1);
 
+  initSpeechRecognition();
   buildTimeLabels();
   buildSlotGrid();
 
