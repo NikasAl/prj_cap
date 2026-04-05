@@ -713,6 +713,16 @@ let recordSeconds = 0;
 const SBER_TOKEN_URL = "https://ngw.devices.sberbank.ru:9443/api/v2/oauth";
 const SBER_RECOGNIZE_URL = "https://smartspeech.sber.ru/rest/v1/speech:recognize";
 
+// SVG icons for mic button (stroke-based, inherit color via currentColor)
+const MIC_IDLE_SVG = '<svg class="mic-icon" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="1" width="6" height="12" rx="3"/><path d="M5 10a7 7 0 0014 0"/><line x1="12" y1="17" x2="12" y2="21"/></svg>';
+const MIC_REC_SVG = '<svg class="mic-icon" viewBox="0 0 24 24" width="14" height="14" fill="currentColor" stroke="none"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>';
+const MIC_WAIT_SVG = '<svg class="mic-icon mic-wait" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>';
+
+function setMicIcon(svg, timerText) {
+  const btn = $("btnMic");
+  btn.innerHTML = svg + (timerText ? `<span class="mic-timer">${timerText}</span>` : "");
+}
+
 /** Detect MediaRecorder support */
 function initVoiceInput() {
   const btn = $("btnMic");
@@ -868,13 +878,13 @@ async function startRecording() {
   isRecording = true;
   recordSeconds = 0;
   $("btnMic").classList.add("recording");
-  $("btnMic").textContent = "⏹";
+  setMicIcon(MIC_REC_SVG);
 
   recordTimer = setInterval(() => {
     recordSeconds++;
     const m = String(Math.floor(recordSeconds / 60)).padStart(2, "0");
     const s = String(recordSeconds % 60).padStart(2, "0");
-    $("btnMic").textContent = `⏹ ${m}:${s}`;
+    setMicIcon(MIC_REC_SVG, `${m}:${s}`);
   }, 1000);
 }
 
@@ -884,7 +894,7 @@ function stopRecording() {
   }
   isRecording = false;
   $("btnMic").classList.remove("recording");
-  $("btnMic").textContent = "🎤";
+  setMicIcon(MIC_IDLE_SVG);
   clearInterval(recordTimer);
 }
 
@@ -895,7 +905,7 @@ async function transcribeWithSber(audioBlob) {
     return;
   }
 
-  $("btnMic").textContent = "⏳";
+  setMicIcon(MIC_WAIT_SVG);
   toast("Подготавливаю аудио…", "ok");
 
   try {
@@ -906,7 +916,7 @@ async function transcribeWithSber(audioBlob) {
     // Limit to 2 MB and 60 seconds — SaluteSpeech constraints
     if (wavBlob.size > 2 * 1024 * 1024) {
       toast("Аудио слишком длинное (макс 1 минута)", "err");
-      $("btnMic").textContent = "🎤";
+      setMicIcon(MIC_IDLE_SVG);
       return;
     }
 
@@ -919,8 +929,8 @@ async function transcribeWithSber(audioBlob) {
       console.log("[prjcap voice] token acquired");
     } catch (err) {
       console.warn("[prjcap voice] token error:", err);
-      toast("Ошибка авторизации Сбера. Проверьте Authorization Key (⚙️).", "err");
-      $("btnMic").textContent = "🎤";
+      toast("Ошибка авторизации Сбера. Проверьте Authorization Key.", "err");
+      setMicIcon(MIC_IDLE_SVG);
       return;
     }
 
@@ -942,7 +952,7 @@ async function transcribeWithSber(audioBlob) {
       } else {
         toast(`Ошибка распознавания: ${resp.status}`, "err");
       }
-      $("btnMic").textContent = "🎤";
+      setMicIcon(MIC_IDLE_SVG);
       return;
     }
 
@@ -963,7 +973,7 @@ async function transcribeWithSber(audioBlob) {
     console.warn("[prjcap voice] error:", err);
     toast("Ошибка при распознавании: " + err.message, "err");
   } finally {
-    $("btnMic").textContent = "🎤";
+    setMicIcon(MIC_IDLE_SVG);
   }
 }
 
