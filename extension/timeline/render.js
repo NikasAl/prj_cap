@@ -229,9 +229,9 @@ export function renderCards() {
     } else {
       const chk = document.createElement("button");
       chk.type = "button";
-      chk.className = "card-check";
+      chk.className = "card-done-btn";
       chk.title = "Отметить выполненной";
-      chk.innerHTML = "&#9675;";
+      chk.textContent = "✓ Сделано";
       card.appendChild(chk);
     }
 

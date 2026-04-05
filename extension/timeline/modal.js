@@ -158,7 +158,7 @@ export function setupModalDelegation() {
   const taskLayer = $("taskLayer");
   taskLayer.addEventListener("click", (e) => {
     // Check button
-    const checkBtn = e.target.closest(".card-check");
+    const checkBtn = e.target.closest(".card-done-btn");
     if (checkBtn) {
       e.stopPropagation();
       const card = checkBtn.closest("[data-task-id]");
