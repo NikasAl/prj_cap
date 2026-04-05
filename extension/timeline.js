@@ -663,6 +663,7 @@ function setupDayDrop(btn, deltaDays) {
 let recognition = null;
 let isRecording = false;
 let baseText = "";  // text already in textarea when recording started
+let micStream = null; // active getUserMedia stream (keeps audio pipeline open)
 
 /** Detect Web Speech API availability and show/hide mic button */
 function initSpeechRecognition() {
@@ -685,6 +686,7 @@ function initSpeechRecognition() {
     for (let i = 0; i < e.results.length; i++) {
       spoken += e.results[i][0].transcript;
     }
+    console.log("[prjcap speech] spoken:", JSON.stringify(spoken));
     if (!spoken) return;
 
     const ta = $("mText");
@@ -726,13 +728,28 @@ function initSpeechRecognition() {
   });
 }
 
-function startRecording() {
+async function startRecording() {
   if (!recognition) return;
   // Snapshot what's already in the textarea so we always append to it
   baseText = $("mText").value.trim();
   isRecording = true;
   $("btnMic").classList.add("recording");
   $("btnMic").textContent = "⏹";
+
+  // CRITICAL: In chrome-extension:// context, SpeechRecognition does not
+  // produce onresult events unless we first open an audio stream via
+  // getUserMedia. This establishes the audio pipeline that the recognition
+  // engine uses to capture microphone input.
+  try {
+    micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    console.log("[prjcap speech] mic stream acquired");
+  } catch (err) {
+    console.warn("[prjcap speech] getUserMedia failed:", err);
+    stopRecording();
+    toast("Не удалось получить доступ к микрофону", "err");
+    return;
+  }
+
   try { recognition.start(); } catch (_) { /* already started */ }
 }
 
@@ -742,6 +759,11 @@ function stopRecording() {
   $("btnMic").classList.remove("recording");
   $("btnMic").textContent = "🎤";
   try { recognition.stop(); } catch (_) {}
+  // Release microphone stream
+  if (micStream) {
+    micStream.getTracks().forEach((t) => t.stop());
+    micStream = null;
+  }
 }
 
 /** Stop recording if active when modal closes */
