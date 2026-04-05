@@ -691,38 +691,36 @@ function initVoiceInput() {
   }
 }
 
-async function getSberCredentials() {
-  const d = await chrome.storage.local.get(["sberClientId", "sberClientSecret"]);
-  return { clientId: d.sberClientId || "", clientSecret: d.sberClientSecret || "" };
+async function getSberAuthKey() {
+  const d = await chrome.storage.local.get(["sberAuthKey"]);
+  return d.sberAuthKey || "";
 }
 
 async function promptSberCredentials() {
-  const creds = await getSberCredentials();
-  const clientId = prompt(
-    "Client ID ( studio.sber.ru → проект SaluteSpeech → Авторизационные данные ):",
-    creds.clientId || ""
+  const key = await getSberAuthKey();
+  const authKey = prompt(
+    "Authorization Key ( studio.sber.ru → Настройки API → Получить ключ ):",
+    key || ""
   );
-  if (clientId === null) return;
-  if (!clientId.trim()) {
-    await chrome.storage.local.remove(["sberClientId", "sberClientSecret"]);
+  if (authKey === null) return;
+  if (!authKey.trim()) {
+    await chrome.storage.local.remove(["sberAuthKey"]);
     toast("Данные Сбера удалены", "ok");
     return;
   }
-  const clientSecret = prompt("Client Secret:", creds.clientSecret || "");
-  if (clientSecret === null) return;
-  await chrome.storage.local.set({ sberClientId: clientId.trim(), sberClientSecret: clientSecret.trim() });
-  toast("Данные Сбера сохранены", "ok");
+  await chrome.storage.local.set({ sberAuthKey: authKey.trim() });
+  toast("Authorization Key сохранён", "ok");
 }
 
 /** Obtain a SaluteSpeech access token (valid 30 min) */
-async function getSberAccessToken(clientId, clientSecret) {
-  const basicAuth = btoa(`${clientId}:${clientSecret}`);
+async function getSberAccessToken(authKey) {
+  // Authorization Key from Studio is used directly as Basic token
   const resp = await fetch(SBER_TOKEN_URL, {
     method: "POST",
     headers: {
       "Content-Type": "application/x-www-form-urlencoded",
       "Accept": "application/json",
-      "Authorization": `Basic ${basicAuth}`,
+      "Authorization": `Basic ${authKey}`,
       "RqUID": crypto.randomUUID(),
     },
     body: "scope=SALUTE_SPEECH_PERS",
@@ -779,9 +777,9 @@ function webmToWavBlob(webmBlob) {
 }
 
 async function startRecording() {
-  const creds = await getSberCredentials();
-  if (!creds.clientId || !creds.clientSecret) {
-    toast("Нужны данные Сбера. Нажмите ⚙️ рядом с микрофоном.", "err");
+  const authKey = await getSberAuthKey();
+  if (!authKey) {
+    toast("Нужен Authorization Key Сбера. Нажмите ⚙️ рядом с микрофоном.", "err");
     return;
   }
 
@@ -848,9 +846,9 @@ function stopRecording() {
 }
 
 async function transcribeWithSber(audioBlob) {
-  const creds = await getSberCredentials();
-  if (!creds.clientId || !creds.clientSecret) {
-    toast("Данные Сбера не настроены", "err");
+  const authKey = await getSberAuthKey();
+  if (!authKey) {
+    toast("Authorization Key Сбера не настроен", "err");
     return;
   }
 
@@ -874,11 +872,11 @@ async function transcribeWithSber(audioBlob) {
     // Get access token
     let accessToken;
     try {
-      accessToken = await getSberAccessToken(creds.clientId, creds.clientSecret);
+      accessToken = await getSberAccessToken(authKey);
       console.log("[prjcap voice] token acquired");
     } catch (err) {
       console.warn("[prjcap voice] token error:", err);
-      toast("Ошибка авторизации Сбера. Проверьте Client ID/Secret.", "err");
+      toast("Ошибка авторизации Сбера. Проверьте Authorization Key (⚙️).", "err");
       $("btnMic").textContent = "🎤";
       return;
     }
