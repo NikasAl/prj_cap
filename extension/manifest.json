@@ -5,7 +5,19 @@
   "description": "Проекты и задачи для agent-чата: открыть страницу чата и вставить сообщение следующей задачи.",
   "action": {
     "default_popup": "popup.html",
-    "default_title": "prjcap"
+    "default_title": "prjcap",
+    "default_icon": {
+      "16": "icon16.png",
+      "32": "icon32.png",
+      "48": "icon48.png",
+      "128": "icon128.png"
+    }
+  },
+  "icons": {
+    "16": "icon16.png",
+    "32": "icon32.png",
+    "48": "icon48.png",
+    "128": "icon128.png"
   },
   "permissions": ["storage", "tabs", "scripting", "clipboardWrite"],
   "host_permissions": ["http://*/*", "https://api.groq.com/*", "https://smartspeech.sber.ru/*", "https://ngw.devices.sberbank.ru/*"],
