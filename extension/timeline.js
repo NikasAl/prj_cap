@@ -717,7 +717,7 @@ async function promptSberCredentials() {
 /** Obtain a SaluteSpeech access token (valid 30 min) */
 async function getSberAccessToken(clientId, clientSecret) {
   const basicAuth = btoa(`${clientId}:${clientSecret}`);
-  const resp = await fetch(`${SBER_TOKEN_URL}?scope=SALUTE_SPEECH_PERS`, {
+  const resp = await fetch(SBER_TOKEN_URL, {
     method: "POST",
     headers: {
       "Content-Type": "application/x-www-form-urlencoded",
@@ -725,9 +725,12 @@ async function getSberAccessToken(clientId, clientSecret) {
       "Authorization": `Basic ${basicAuth}`,
       "RqUID": crypto.randomUUID(),
     },
+    body: "scope=SALUTE_SPEECH_PERS",
   });
   if (!resp.ok) {
-    throw new Error(`Token request failed: ${resp.status}`);
+    const errText = await resp.text().catch(() => "");
+    console.warn("[prjcap voice] token response:", resp.status, errText);
+    throw new Error(`Token request failed: ${resp.status} ${errText}`);
   }
   const data = await resp.json();
   return data.access_token;
