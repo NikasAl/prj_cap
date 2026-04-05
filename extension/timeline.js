@@ -298,8 +298,10 @@ function renderCards() {
     tmDiv.textContent = `${slot2time(startSlot)} – ${slot2time(endSlot)}`;
     card.appendChild(tmDiv);
 
-    // Click to edit
-    card.addEventListener("click", () => openModal("edit", null, t.id));
+    // Click to edit (guard against opening modal right after a drag)
+    card.addEventListener("click", () => {
+      if (!card.classList.contains("dragging")) openModal("edit", null, t.id);
+    });
 
     // Drag
     card.draggable = true;
@@ -487,8 +489,13 @@ function onCardDragStart(e, taskId) {
   // Defer visual change so browser captures clean drag ghost
   if (card) setTimeout(() => card.classList.add("dragging"), 0);
 
-  // Disable pointer-events on ALL task cards so they don't steal dragover/drop
-  document.querySelectorAll(".task-card").forEach((c) => { c.style.pointerEvents = "none"; });
+  // Disable pointer-events on task cards so they don't steal dragover/drop.
+  // IMPORTANT: do NOT disable on the drag source itself — browsers cancel the
+  // drag if the source element loses pointer-events while inside a
+  // pointer-events:none container (taskLayer).
+  document.querySelectorAll(".task-card").forEach((c) => {
+    if (c !== card) c.style.pointerEvents = "none";
+  });
 
   $("btnPrevDay").classList.add("drop-target");
   $("btnNextDay").classList.add("drop-target");
