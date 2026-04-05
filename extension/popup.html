@@ -8,9 +8,21 @@
   </head>
   <body>
     <header class="hdr">
-      <h1>prjcap</h1>
-      <p class="sub">Проекты и задачи для agent-чата</p>
+      <div class="hdr-row">
+        <div>
+          <h1>prjcap</h1>
+          <p class="sub">Проекты и задачи для agent-чата</p>
+        </div>
+        <button type="button" id="btnOpenTimeline" class="btn-icon" title="Открыть расписание">📅</button>
+      </div>
     </header>
+
+    <!-- Today's scheduled tasks feed -->
+    <section class="panel feed-panel" id="feedPanel">
+      <h2>Сегодня по плану <span id="feedCount" class="feed-count"></span></h2>
+      <ul id="feedList" class="feed-list"></ul>
+      <p id="feedEmpty" class="feed-empty hidden">Нет запланированных задач на сегодня</p>
+    </section>
 
     <section class="panel">
       <label class="lbl">Активный проект</label>

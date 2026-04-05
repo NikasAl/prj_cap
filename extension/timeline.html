@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>prjcap — Расписание</title>
+  <link rel="stylesheet" href="timeline.css" />
+</head>
+<body>
+  <header class="hdr">
+    <h1>prjcap <span class="hdr-sub">Расписание</span></h1>
+  </header>
+
+  <div class="toolbar">
+    <div class="toolbar-left">
+      <button type="button" id="btnPrevDay" class="btn-icon" title="Предыдущий день">◀</button>
+      <button type="button" id="btnToday" class="btn-today">Сегодня</button>
+      <button type="button" id="btnNextDay" class="btn-icon" title="Следующий день">▶</button>
+      <span id="dateLabel" class="date-label"></span>
+    </div>
+    <div class="toolbar-right">
+      <label class="lbl-inline" for="projectFilter">Проект:</label>
+      <select id="projectFilter" class="ctl-sm"></select>
+      <button type="button" id="btnAddTask" class="btn primary btn-add">+ Задача</button>
+    </div>
+  </div>
+
+  <div class="timeline-wrap">
+    <div class="timeline-scroll" id="timelineScroll">
+      <div class="time-col" id="timeCol"></div>
+      <div class="body-col" id="bodyCol">
+        <div class="slot-grid" id="slotGrid"></div>
+        <div class="task-layer" id="taskLayer"></div>
+        <div class="now-line" id="nowLine"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Task Modal -->
+  <div class="modal-overlay hidden" id="modalOverlay">
+    <div class="modal">
+      <h2 id="modalTitle">Новая задача</h2>
+      <label class="lbl" for="mProject">Проект</label>
+      <select id="mProject" class="ctl"></select>
+      <label class="lbl" for="mText">Текст задачи</label>
+      <textarea id="mText" class="ctl area" rows="3" placeholder="Описание задачи…"></textarea>
+      <div class="modal-row">
+        <div class="modal-field">
+          <label class="lbl" for="mDate">Дата</label>
+          <input type="date" id="mDate" class="ctl" />
+        </div>
+        <div class="modal-field">
+          <label class="lbl" for="mTime">Время</label>
+          <input type="time" id="mTime" class="ctl" step="900" />
+        </div>
+        <div class="modal-field">
+          <label class="lbl" for="mDuration">Длительность</label>
+          <select id="mDuration" class="ctl">
+            <option value="1">15 мин</option>
+            <option value="2">30 мин</option>
+            <option value="3">45 мин</option>
+            <option value="4">1 час</option>
+            <option value="6">1.5 часа</option>
+            <option value="8">2 часа</option>
+            <option value="12">3 часа</option>
+          </select>
+        </div>
+      </div>
+      <div class="modal-actions">
+        <button type="button" id="btnMSave" class="btn primary">Сохранить</button>
+        <button type="button" id="btnMDelete" class="btn danger hidden">Удалить</button>
+        <button type="button" id="btnMCancel" class="btn">Отмена</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast -->
+  <div class="toast hidden" id="toast"></div>
+
+  <script type="module" src="timeline.js"></script>
+</body>
+</html>

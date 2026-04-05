@@ -1,33 +1,20 @@
 import { buildTaskMessage } from "./shared/message-builder.js";
+import { uid, loadState, saveState } from "./shared/storage.js";
 
-const STORAGE_KEYS = ["projects", "tasks", "lastProjectId"];
+const PROJECT_COLORS = [
+  "#3d8bfd", "#3ecf8e", "#ff9f43", "#ee5a6f", "#a78bfa",
+  "#22d3ee", "#f472b6", "#84cc16", "#fbbf24", "#6366f1",
+];
 
 /** @typedef {{ id: string, name: string, chatUrl: string, instructionPrefix?: string, agentTail?: string, inputSelector?: string }} Project */
-/** @typedef {{ id: string, projectId: string, taskText: string, status: 'open'|'sent'|'done', createdAt: string, sentAt?: string, doneAt?: string }} Task */
-
-function uid() {
-  if (crypto.randomUUID) return crypto.randomUUID();
-  return `id_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
-}
-
-async function loadState() {
-  const d = await chrome.storage.local.get(STORAGE_KEYS);
-  return {
-    projects: Array.isArray(d.projects) ? d.projects : [],
-    tasks: Array.isArray(d.tasks) ? d.tasks : [],
-    lastProjectId: d.lastProjectId || null,
-  };
-}
-
-async function saveState(partial) {
-  await chrome.storage.local.set(partial);
-}
+/** @typedef {{ id: string, projectId: string, taskText: string, status: 'open'|'sent'|'done', createdAt: string, sentAt?: string, doneAt?: string, scheduledDate?: string, scheduledTime?: string, duration?: number }} Task */
 
 const el = {
   projectSelect: /** @type {HTMLSelectElement} */ (document.getElementById("projectSelect")),
   btnOpenPaste: document.getElementById("btnOpenPaste"),
   btnOpenOnly: document.getElementById("btnOpenOnly"),
   btnCopyNext: document.getElementById("btnCopyNext"),
+  btnOpenTimeline: document.getElementById("btnOpenTimeline"),
   statusLine: document.getElementById("statusLine"),
   newTaskText: /** @type {HTMLTextAreaElement} */ (document.getElementById("newTaskText")),
   btnAddTask: document.getElementById("btnAddTask"),
@@ -41,7 +28,12 @@ const el = {
   pfSelector: /** @type {HTMLInputElement} */ (document.getElementById("pfSelector")),
   btnSaveProject: document.getElementById("btnSaveProject"),
   btnDeleteProject: document.getElementById("btnDeleteProject"),
+  feedList: document.getElementById("feedList"),
+  feedCount: document.getElementById("feedCount"),
+  feedEmpty: document.getElementById("feedEmpty"),
 };
+
+/* ── Helpers ── */
 
 function setStatus(text, kind = "") {
   el.statusLine.textContent = text || "";
@@ -50,6 +42,27 @@ function setStatus(text, kind = "") {
 
 function selectedProjectId() {
   return el.projectSelect.value || null;
+}
+
+function todayStr() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
+function t2m(t) {
+  if (!t) return -1;
+  const [h, m] = t.split(":").map(Number);
+  return h * 60 + m;
+}
+
+function hashStr(s) {
+  let h = 0;
+  for (let i = 0; i < s.length; i++) h = ((h << 5) - h + s.charCodeAt(i)) | 0;
+  return h;
+}
+
+function projColor(pid) {
+  return PROJECT_COLORS[Math.abs(hashStr(pid || "")) % PROJECT_COLORS.length];
 }
 
 /** @param {Project[]} projects */
@@ -78,6 +91,77 @@ function fillProjectFormFromSelection(state) {
   }
 }
 
+/* ── Feed: today's scheduled tasks ── */
+
+function renderFeed(state) {
+  const ds = todayStr();
+  const nowMinutes = new Date().getHours() * 60 + new Date().getMinutes();
+
+  const scheduled = state.tasks
+    .filter((t) => t.scheduledDate === ds && t.scheduledTime && t.status !== "done")
+    .sort((a, b) => t2m(a.scheduledTime) - t2m(b.scheduledTime));
+
+  el.feedCount.textContent = scheduled.length > 0 ? `(${scheduled.length})` : "";
+
+  if (scheduled.length === 0) {
+    el.feedList.innerHTML = "";
+    el.feedEmpty.classList.remove("hidden");
+    return;
+  }
+
+  el.feedEmpty.classList.add("hidden");
+  el.feedList.innerHTML = "";
+
+  // Find the next upcoming task
+  let nextId = null;
+  for (const t of scheduled) {
+    const endMin = t2m(t.scheduledTime) + (t.duration || 1) * 15;
+    if (endMin > nowMinutes) { nextId = t.id; break; }
+  }
+
+  for (const t of scheduled) {
+    const li = document.createElement("li");
+    const color = projColor(t.projectId);
+    const proj = state.projects.find((p) => p.id === t.projectId);
+    const isNext = t.id === nextId;
+    li.className = `feed-item${isNext ? " feed-next" : ""}`;
+    li.style.borderLeftColor = color;
+
+    // Color bar
+    const cBar = document.createElement("div");
+    cBar.className = "feed-color";
+    cBar.style.background = color;
+    li.appendChild(cBar);
+
+    // Body
+    const body = document.createElement("div");
+    body.className = "feed-body";
+    const projSpan = document.createElement("div");
+    projSpan.className = "feed-proj";
+    projSpan.textContent = proj ? proj.name : "—";
+    projSpan.style.color = color;
+    body.appendChild(projSpan);
+    const txtSpan = document.createElement("div");
+    txtSpan.className = "feed-text";
+    txtSpan.textContent = t.taskText;
+    txtSpan.title = t.taskText;
+    body.appendChild(txtSpan);
+    li.appendChild(body);
+
+    // Time
+    const timeSpan = document.createElement("span");
+    timeSpan.className = "feed-time";
+    const endMin = t2m(t.scheduledTime) + (t.duration || 1) * 15;
+    const endTime = `${String(Math.floor(endMin / 60) || 0).padStart(2, "0")}:${String(endMin % 60).padStart(2, "0")}`;
+    timeSpan.textContent = `${t.scheduledTime}–${endTime}`;
+    li.appendChild(timeSpan);
+
+    el.feedList.appendChild(li);
+  }
+}
+
+/* ── Main render ── */
+
 /** @param {{ projects: Project[], tasks: Task[], lastProjectId: string | null }} state */
 async function render(state) {
   const sel = selectedProjectId();
@@ -104,6 +188,9 @@ async function render(state) {
   }
 
   fillProjectFormFromSelection(state);
+
+  // Render feed
+  renderFeed(state);
 
   const pid = selectedProjectId();
   el.taskList.innerHTML = "";
@@ -252,6 +339,8 @@ function startEditTask(taskId, currentText, taskItemEl) {
   taskItemEl.insertBefore(wrap, taskItemEl.querySelector(".task-actions"));
   textarea.focus();
 }
+
+/* ── Event listeners ── */
 
 el.projectSelect.addEventListener("change", async () => {
   await saveState({ lastProjectId: selectedProjectId() });
@@ -410,6 +499,19 @@ el.btnOpenPaste.addEventListener("click", async () => {
 el.toggleProjectForm.addEventListener("click", () => {
   const open = el.projectFormWrap.classList.toggle("hidden") === false;
   el.toggleProjectForm.setAttribute("aria-expanded", open ? "true" : "false");
+});
+
+// Open timeline page
+el.btnOpenTimeline.addEventListener("click", () => {
+  chrome.tabs.create({ url: chrome.runtime.getURL("timeline.html") });
+  window.close(); // close popup after opening
+});
+
+// Re-render when storage changes (sync with timeline page)
+chrome.storage.onChanged.addListener((changes) => {
+  if (changes.tasks || changes.projects) {
+    refresh();
+  }
 });
 
 refresh();
