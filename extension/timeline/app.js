@@ -51,6 +51,9 @@ function init() {
     }
   });
 
+  // Sidebar resize
+  initSidebarResize();
+
   // Initial render
   loadAndRender().then(scrollToNow);
 
@@ -61,6 +64,45 @@ function init() {
   chrome.storage.onChanged.addListener((changes) => {
     if (changes.projects || changes.tasks) loadAndRender();
   });
+}
+
+function initSidebarResize() {
+  const panel = $("unscheduledPanel");
+  const handle = $("resizeHandle");
+  if (!panel || !handle) return;
+
+  let startX, startW;
+
+  function onMouseMove(e) {
+    const dx = e.clientX - startX;
+    const newW = Math.max(140, Math.min(startW + dx, window.innerWidth * 0.5));
+    panel.style.width = `${newW}px`;
+  }
+
+  function onMouseUp() {
+    document.removeEventListener("mousemove", onMouseMove);
+    document.removeEventListener("mouseup", onMouseUp);
+    handle.classList.remove("active");
+    document.body.style.cursor = "";
+    document.body.style.userSelect = "";
+    // Persist width
+    localStorage.setItem("prjcap_sidebar_w", panel.style.width);
+  }
+
+  handle.addEventListener("mousedown", (e) => {
+    e.preventDefault();
+    startX = e.clientX;
+    startW = panel.offsetWidth;
+    handle.classList.add("active");
+    document.body.style.cursor = "col-resize";
+    document.body.style.userSelect = "none";
+    document.addEventListener("mousemove", onMouseMove);
+    document.addEventListener("mouseup", onMouseUp);
+  });
+
+  // Restore saved width
+  const saved = localStorage.getItem("prjcap_sidebar_w");
+  if (saved) panel.style.width = saved;
 }
 
 document.addEventListener("DOMContentLoaded", init);
