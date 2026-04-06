@@ -23,6 +23,7 @@
       <label class="lbl-inline" for="projectFilter">Проект:</label>
       <select id="projectFilter" class="ctl-sm"></select>
       <button type="button" id="btnAddTask" class="btn primary btn-add">+ Задача</button>
+      <button type="button" id="btnManageProjects" class="btn btn-settings" title="Управление проектами">⚙ Проекты</button>
     </div>
   </div>
 
@@ -92,6 +93,28 @@
         <button type="button" id="btnMSave" class="btn primary">Сохранить</button>
         <button type="button" id="btnMDelete" class="btn danger hidden">Удалить</button>
         <button type="button" id="btnMCancel" class="btn">Отмена</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Project Modal -->
+  <div class="modal-overlay hidden" id="projectModalOverlay">
+    <div class="modal modal-project">
+      <h2 id="projModalTitle">Новый проект</h2>
+      <label class="lbl" for="projName">Название</label>
+      <input type="text" id="projName" class="ctl" placeholder="myproj" />
+      <label class="lbl" for="projChatUrl">URL чата с агентом</label>
+      <input type="url" id="projChatUrl" class="ctl" placeholder="https://…" />
+      <label class="lbl" for="projPrefix">Постоянный промпт (instruction prefix)</label>
+      <textarea id="projPrefix" class="ctl area" rows="4" placeholder="Контекст для агента…"></textarea>
+      <label class="lbl" for="projTail">Финальный промпт (agent tail)</label>
+      <textarea id="projTail" class="ctl area" rows="2" placeholder="Что делать после выполнения…"></textarea>
+      <label class="lbl" for="projSelector">CSS-селектор поля ввода (необязательно)</label>
+      <input type="text" id="projSelector" class="ctl" value="textarea" placeholder="textarea, #chat-input, …" />
+      <div class="modal-actions">
+        <button type="button" id="btnProjSave" class="btn primary">Сохранить</button>
+        <button type="button" id="btnProjDelete" class="btn danger hidden">Удалить</button>
+        <button type="button" id="btnProjCancel" class="btn">Отмена</button>
       </div>
     </div>
   </div>

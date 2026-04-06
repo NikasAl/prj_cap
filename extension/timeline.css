@@ -121,6 +121,8 @@ body {
 .btn.danger { border-color: #a04444; color: #ffb4b4; }
 .btn.danger:hover { background: rgba(232,93,93,.15); }
 .btn-add { white-space: nowrap; }
+.btn-settings { font-size: 11px; opacity: .8; }
+.btn-settings:hover { opacity: 1; border-color: var(--accent); }
 
 /* ── Main area: sidebar + timeline ── */
 .main-area {
@@ -515,6 +517,55 @@ body {
 }
 .modal-actions .btn { flex: 1; }
 .modal-actions .btn.primary { flex: 2; }
+
+/* ── Project modal (wider) ── */
+.modal-project { width: 520px; }
+
+/* ── Card action buttons (chat, copy) ── */
+.card-actions {
+  position: absolute;
+  bottom: 4px;
+  right: 6px;
+  display: flex;
+  gap: 4px;
+  opacity: 0;
+  transition: opacity .15s;
+  pointer-events: none;
+}
+.task-card:hover .card-actions { opacity: 1; pointer-events: all; }
+.card-act-btn {
+  width: 22px; height: 22px;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--panel);
+  color: var(--muted);
+  font-size: 11px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+  transition: border-color .15s, background .15s, color .15s;
+  white-space: nowrap;
+}
+.card-act-btn:hover {
+  border-color: var(--accent);
+  background: rgba(61,139,253,.12);
+  color: var(--accent);
+}
+.card-act-btn.card-act-chat:hover {
+  border-color: var(--accent);
+  background: rgba(61,139,253,.15);
+  color: var(--accent);
+}
+.card-act-btn.card-act-copy:hover {
+  border-color: var(--ok);
+  background: rgba(62,207,142,.12);
+  color: var(--ok);
+}
+/* Show card-actions above time when both present */
+.task-card .card-actions { z-index: 3; }
 
 /* ── Microphone / voice dictation ── */
 .btn-mic {

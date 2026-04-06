@@ -6,7 +6,11 @@ import { loadAndRender, buildTimeLabels, buildSlotGrid, updateNowLine, scrollToN
 import { navDate, goToday, onFilterChange } from "./date-nav.js";
 import { setupCardDragDelegation, setupTimelineDrop, setupSidebarDrop, setupDayDrop } from "./drag-drop.js";
 import { setupModalDelegation, closeModal, openModal } from "./modal.js";
+import { setupProjectModal, closeProjectModal } from "./project-modal.js";
 import { initVoiceInput, toggleRecording } from "./voice.js";
+import { buildTaskMessage } from "../shared/message-builder.js";
+import { tl, reload } from "./state.js";
+import { toast } from "./ui.js";
 
 const $ = (id) => document.getElementById(id);
 
@@ -28,6 +32,12 @@ function init() {
   // Modal event delegation (card clicks, slot dblclick, modal buttons)
   setupModalDelegation();
 
+  // Project modal
+  setupProjectModal();
+
+  // Card action buttons: chat & copy prompt (event delegation)
+  setupCardActions();
+
   // Voice input
   initVoiceInput();
 
@@ -37,12 +47,15 @@ function init() {
 
   // Keyboard shortcuts
   document.addEventListener("keydown", (e) => {
-    if ($("modalOverlay").classList.contains("hidden")) {
+    if ($("modalOverlay").classList.contains("hidden") && $("projectModalOverlay").classList.contains("hidden")) {
       if (e.key === "ArrowLeft") navDate(-1);
       if (e.key === "ArrowRight") navDate(1);
       if (e.key === "t" || e.key === "T" || e.key === "з" || e.key === "З") goToday();
     } else {
-      if (e.key === "Escape") closeModal();
+      if (e.key === "Escape") {
+        if (!$("projectModalOverlay").classList.contains("hidden")) closeProjectModal();
+        else closeModal();
+      }
       // Voice dictation: Ctrl+' (or Ctrl+э in Russian layout)
       if ((e.ctrlKey || e.metaKey) && (e.key === "э" || e.key === "'")) {
         e.preventDefault();
@@ -106,3 +119,66 @@ function initSidebarResize() {
 }
 
 document.addEventListener("DOMContentLoaded", init);
+
+/* ── Card action delegation: open chat, copy prompt ── */
+
+function setupCardActions() {
+  const taskLayer = $("taskLayer");
+  taskLayer.addEventListener("click", (e) => {
+    const chatBtn = e.target.closest(".card-act-chat");
+    if (chatBtn) {
+      e.stopPropagation();
+      openAgentChat(chatBtn.dataset.projectId);
+      return;
+    }
+    const copyBtn = e.target.closest(".card-act-copy");
+    if (copyBtn) {
+      e.stopPropagation();
+      copyTaskPrompt(copyBtn.dataset.taskId, copyBtn.dataset.projectId);
+      return;
+    }
+  });
+}
+
+async function openAgentChat(projectId) {
+  const project = tl.projects.find((p) => String(p.id) === String(projectId));
+  if (!project || !project.chatUrl) {
+    toast("У проекта не задан URL чата", "err");
+    return;
+  }
+  try {
+    const res = await chrome.runtime.sendMessage({ action: "openChatAndPasteNext", projectId });
+    if (!res || !res.ok) {
+      toast((res && res.error) || "Ошибка", "err");
+      return;
+    }
+    if (res.pasted) {
+      toast("Чат открыт, промпт вставлен", "ok");
+    } else {
+      toast("Чат открыт. Вставьте промпт вручную", "ok");
+      if (res.message) await navigator.clipboard.writeText(res.message);
+    }
+    // Refresh to update sent status
+    await reload();
+    loadAndRender();
+  } catch (err) {
+    toast(String(err.message || err), "err");
+  }
+}
+
+async function copyTaskPrompt(taskId, projectId) {
+  await reload();
+  const task = tl.tasks.find((t) => t.id === taskId);
+  const project = tl.projects.find((p) => String(p.id) === String(projectId));
+  if (!task || !project) {
+    toast("Задача или проект не найдены", "err");
+    return;
+  }
+  const msg = buildTaskMessage({
+    instructionPrefix: project.instructionPrefix,
+    agentTail: project.agentTail,
+    taskText: task.taskText,
+  });
+  await navigator.clipboard.writeText(msg);
+  toast("Промпт скопирован в буфер", "ok");
+}

@@ -233,6 +233,34 @@ export function renderCards() {
       chk.title = "Отметить выполненной";
       chk.textContent = "✓ Сделано";
       card.appendChild(chk);
+
+      // Chat & copy action buttons (only for open/sent tasks)
+      if (!compact) {
+        const actWrap = document.createElement("div");
+        actWrap.className = "card-actions";
+
+        // Open chat button
+        const chatBtn = document.createElement("button");
+        chatBtn.type = "button";
+        chatBtn.className = "card-act-btn card-act-chat";
+        chatBtn.title = "Открыть чат с агентом";
+        chatBtn.innerHTML = "&#128172;";
+        chatBtn.dataset.projectId = t.projectId;
+        chatBtn.dataset.taskId = t.id;
+        actWrap.appendChild(chatBtn);
+
+        // Copy prompt button
+        const copyBtn = document.createElement("button");
+        copyBtn.type = "button";
+        copyBtn.className = "card-act-btn card-act-copy";
+        copyBtn.title = "Копировать промпт задачи";
+        copyBtn.innerHTML = "&#128203;";
+        copyBtn.dataset.taskId = t.id;
+        copyBtn.dataset.projectId = t.projectId;
+        actWrap.appendChild(copyBtn);
+
+        card.appendChild(actWrap);
+      }
     }
 
     // Time range

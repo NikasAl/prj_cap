@@ -29,6 +29,12 @@ export async function persistTasks(tasks) {
   tl.tasks = tasks;
 }
 
+/** Persist projects array to storage and update tl.projects */
+export async function persistProjects(projects) {
+  await saveState({ projects });
+  tl.projects = projects;
+}
+
 /** Current timeline date as YYYY-MM-DD */
 export function dateStr() {
   return fmtD(tl.curDate);
