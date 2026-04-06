@@ -157,7 +157,7 @@ export async function openChatAndPasteNext(projectId) {
 
   const tab = await chrome.tabs.create({ url: project.chatUrl, active: true });
   await waitTabComplete(tab.id);
-  await new Promise((r) => setTimeout(r, 400));
+  await new Promise((r) => setTimeout(r, 3000));
 
   const results = await chrome.scripting.executeScript({
     target: { tabId: tab.id },

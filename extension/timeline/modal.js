@@ -157,6 +157,8 @@ export function setupModalDelegation() {
   // Card clicks: edit task or toggle done
   const taskLayer = $("taskLayer");
   taskLayer.addEventListener("click", (e) => {
+    // Action buttons (chat, copy) — handled by app.js, skip here
+    if (e.target.closest(".card-actions")) return;
     // Check button
     const checkBtn = e.target.closest(".card-done-btn");
     if (checkBtn) {
