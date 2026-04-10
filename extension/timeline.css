@@ -521,6 +521,27 @@ body {
 /* ── Project modal (wider) ── */
 .modal-project { width: 520px; }
 
+/* ── Color palette ── */
+.color-palette {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-top: 4px;
+}
+.color-swatch {
+  width: 28px; height: 28px;
+  border: 2px solid transparent;
+  border-radius: 6px;
+  cursor: pointer;
+  padding: 0;
+  transition: border-color .15s, transform .1s;
+}
+.color-swatch:hover { transform: scale(1.15); }
+.color-swatch.active {
+  border-color: var(--text);
+  transform: scale(1.15);
+}
+
 /* ── Card action buttons (chat, copy) ── */
 .card-actions {
   position: absolute;

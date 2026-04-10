@@ -9,6 +9,12 @@ import { tl, reload, dateStr } from "./state.js";
 
 const $ = (id) => document.getElementById(id);
 
+/** Get project color, preferring saved color */
+function pColor(projectId) {
+  const p = tl.projects.find((x) => x.id === projectId);
+  return projColor(projectId, p && p.color ? p.color : null);
+}
+
 /* ── Main orchestrator ── */
 
 export async function loadAndRender() {
@@ -98,7 +104,7 @@ export function renderUnscheduled() {
   emptyEl.classList.add("hidden");
 
   for (const t of tasks) {
-    const color = projColor(t.projectId);
+    const color = pColor(t.projectId);
     const proj = tl.projects.find((p) => p.id === t.projectId);
 
     const card = document.createElement("div");
@@ -189,7 +195,7 @@ export function renderCards() {
     const dur = t.duration || 1;
     const top = startSlot * SLOT_H;
     const height = dur * SLOT_H;
-    const color = projColor(t.projectId);
+    const color = pColor(t.projectId);
     const proj = tl.projects.find((p) => p.id === t.projectId);
     const compact = height < 60;
 

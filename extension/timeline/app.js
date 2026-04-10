@@ -22,6 +22,11 @@ function init() {
   $("projectFilter").addEventListener("change", onFilterChange);
   $("btnAddTask").addEventListener("click", () => openModal("add"));
 
+  // Open review page
+  $("btnOpenReview").addEventListener("click", () => {
+    window.location.href = "review.html";
+  });
+
   // Drag & drop
   setupCardDragDelegation();
   setupTimelineDrop();

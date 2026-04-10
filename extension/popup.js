@@ -104,8 +104,8 @@ function renderFeed(state) {
 
   for (const t of scheduled) {
     const li = document.createElement("li");
-    const color = projColor(t.projectId);
     const proj = state.projects.find((p) => p.id === t.projectId);
+    const color = projColor(t.projectId, proj && proj.color ? proj.color : null);
     const isNext = t.id === nextId;
     li.className = `feed-item${isNext ? " feed-next" : ""}`;
     li.style.borderLeftColor = color;

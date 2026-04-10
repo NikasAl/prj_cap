@@ -49,7 +49,7 @@ export function openModal(mode, slotIndex = null, taskId = null) {
     $("mText").value = "";
     $("mDate").value = dateStr();
     $("mTime").value = slotIndex != null ? slot2time(slotIndex) : "09:00";
-    $("mDuration").value = "1";
+    $("mDuration").value = "2";
     $("mStatus").value = "open";
     $("mStatusWrap").classList.add("hidden");
     $("btnMDelete").classList.add("hidden");

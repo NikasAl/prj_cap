@@ -23,6 +23,7 @@
       <label class="lbl-inline" for="projectFilter">Проект:</label>
       <select id="projectFilter" class="ctl-sm"></select>
       <button type="button" id="btnAddTask" class="btn primary btn-add">+ Задача</button>
+      <button type="button" id="btnOpenReview" class="btn btn-settings" title="Обзор выполненных задач">📊 Обзор</button>
       <button type="button" id="btnManageProjects" class="btn btn-settings" title="Управление проектами">⚙ Проекты</button>
     </div>
   </div>
@@ -101,8 +102,14 @@
   <div class="modal-overlay hidden" id="projectModalOverlay">
     <div class="modal modal-project">
       <h2 id="projModalTitle">Новый проект</h2>
+      <label class="lbl" for="projEditSelect">Проект для редактирования</label>
+      <select id="projEditSelect" class="ctl">
+        <option value="">— создать новый —</option>
+      </select>
       <label class="lbl" for="projName">Название</label>
       <input type="text" id="projName" class="ctl" placeholder="myproj" />
+      <label class="lbl">Цвет проекта</label>
+      <div id="projColorPalette" class="color-palette"></div>
       <label class="lbl" for="projChatUrl">URL чата с агентом</label>
       <input type="url" id="projChatUrl" class="ctl" placeholder="https://…" />
       <label class="lbl" for="projPrefix">Постоянный промпт (instruction prefix)</label>

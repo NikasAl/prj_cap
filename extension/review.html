@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>prjcap — Обзор</title>
+  <link rel="stylesheet" href="shared/base.css" />
+  <link rel="stylesheet" href="review.css" />
+</head>
+<body>
+  <header class="hdr">
+    <div class="hdr-row">
+      <div>
+        <h1>prjcap <span class="hdr-sub">Обзор</span></h1>
+      </div>
+      <div class="hdr-actions">
+        <button type="button" id="btnBackTimeline" class="btn-icon" title="Расписание">📅</button>
+      </div>
+    </div>
+  </header>
+
+  <div class="toolbar">
+    <div class="toolbar-left">
+      <button type="button" id="btnPrev" class="btn-icon" title="Назад">◀</button>
+      <button type="button" id="btnToday" class="btn-today">Сегодня</button>
+      <button type="button" id="btnNext" class="btn-icon" title="Вперёд">▶</button>
+      <span id="periodLabel" class="period-label"></span>
+    </div>
+    <div class="toolbar-right">
+      <label class="lbl-inline" for="viewMode">Период:</label>
+      <select id="viewMode" class="ctl-sm">
+        <option value="day">День</option>
+        <option value="week">Неделя</option>
+      </select>
+      <label class="lbl-inline" for="projectFilter">Проект:</label>
+      <select id="projectFilter" class="ctl-sm"></select>
+    </div>
+  </div>
+
+  <!-- Summary cards -->
+  <div class="summary-section">
+    <div class="summary-row" id="summaryRow"></div>
+  </div>
+
+  <!-- Stats overview -->
+  <div class="stats-bar" id="statsBar"></div>
+
+  <!-- Detailed task list -->
+  <section class="tasks-section">
+    <div class="tasks-header">
+      <h2 id="tasksTitle">Выполненные задачи</h2>
+      <span id="tasksCount" class="tasks-count"></span>
+    </div>
+    <div class="tasks-list" id="tasksList"></div>
+    <p id="tasksEmpty" class="tasks-empty hidden">Нет выполненных задач за этот период</p>
+  </section>
+
+  <!-- Toast -->
+  <div class="toast hidden" id="toast"></div>
+
+  <script type="module" src="review/app.js"></script>
+</body>
+</html>

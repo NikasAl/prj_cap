@@ -15,8 +15,9 @@ export function hashStr(s) {
   return h;
 }
 
-/** Get color for a project by its ID */
-export function projColor(pid) {
+/** Get color for a project: use saved color if set, otherwise deterministic from ID */
+export function projColor(pid, savedColor) {
+  if (savedColor) return savedColor;
   return PROJECT_COLORS[Math.abs(hashStr(pid || "")) % PROJECT_COLORS.length];
 }
 

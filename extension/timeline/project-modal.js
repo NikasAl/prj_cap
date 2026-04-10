@@ -6,10 +6,34 @@ import { uid } from "../shared/storage.js";
 import { tl, reload, persistProjects, persistTasks } from "./state.js";
 import { renderCards, renderUnscheduled, renderFilter } from "./render.js";
 import { toast } from "./ui.js";
+import { PROJECT_COLORS } from "../shared/colors.js";
 
 const $ = (id) => document.getElementById(id);
 
 let editingProjectId = null;
+let selectedColor = null;
+
+/* ── Color palette ── */
+
+function renderColorPalette(activeColor) {
+  const wrap = $("projColorPalette");
+  wrap.innerHTML = "";
+  selectedColor = activeColor || null;
+  for (const c of PROJECT_COLORS) {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "color-swatch";
+    btn.style.background = c;
+    btn.title = c;
+    if (c === activeColor) btn.classList.add("active");
+    btn.addEventListener("click", () => {
+      selectedColor = c;
+      wrap.querySelectorAll(".color-swatch").forEach((s) => s.classList.remove("active"));
+      btn.classList.add("active");
+    });
+    wrap.appendChild(btn);
+  }
+}
 
 /* ── Open / Close ── */
 
@@ -17,6 +41,17 @@ export function openProjectModal(projectId = null) {
   editingProjectId = projectId || null;
   const title = $("projModalTitle");
   const btnDel = $("btnProjDelete");
+
+  // Populate project selector for editing
+  const editSel = $("projEditSelect");
+  editSel.innerHTML = '<option value="">— создать новый —</option>';
+  for (const p of tl.projects.sort((a, b) => a.name.localeCompare(b.name))) {
+    const o = document.createElement("option");
+    o.value = p.id;
+    o.textContent = p.name;
+    if (editingProjectId && p.id === editingProjectId) o.selected = true;
+    editSel.appendChild(o);
+  }
 
   if (editingProjectId) {
     title.textContent = "Редактировать проект";
@@ -27,6 +62,7 @@ export function openProjectModal(projectId = null) {
     $("projPrefix").value = p.instructionPrefix || "";
     $("projTail").value = p.agentTail || "";
     $("projSelector").value = p.inputSelector || "";
+    renderColorPalette(p.color || null);
     btnDel.classList.remove("hidden");
   } else {
     title.textContent = "Новый проект";
@@ -35,6 +71,7 @@ export function openProjectModal(projectId = null) {
     $("projPrefix").value = "";
     $("projTail").value = "";
     $("projSelector").value = "textarea";
+    renderColorPalette(null);
     btnDel.classList.add("hidden");
   }
 
@@ -79,6 +116,7 @@ export async function saveProject() {
     id,
     name,
     chatUrl,
+    ...(selectedColor ? { color: selectedColor } : {}),
     ...(instructionPrefix ? { instructionPrefix } : {}),
     ...(agentTail ? { agentTail } : {}),
     ...(inputSelector ? { inputSelector } : {}),
@@ -128,6 +166,16 @@ export function setupProjectModal() {
   $("btnProjSave").addEventListener("click", saveProject);
   $("btnProjDelete").addEventListener("click", deleteProject);
   $("btnProjCancel").addEventListener("click", closeProjectModal);
+
+  // Switch between create/edit mode via selector
+  $("projEditSelect").addEventListener("change", (e) => {
+    const pid = e.target.value;
+    if (pid) {
+      openProjectModal(pid);
+    } else {
+      openProjectModal(null);
+    }
+  });
 
   $("projectModalOverlay").addEventListener("click", (e) => {
     if (e.target === $("projectModalOverlay")) closeProjectModal();
