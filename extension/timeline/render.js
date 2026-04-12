@@ -183,7 +183,7 @@ export function renderCards() {
   if (tasks.length === 0) {
     const es = document.createElement("div");
     es.className = "empty-state";
-    es.innerHTML = `<div class="empty-icon">📅</div><p>Нет запланированных задач</p><p style="font-size:12px;margin-top:4px;opacity:.7">Дважды кликните на слот или нажмите «+ Задача»</p>`;
+    es.innerHTML = `<p>Нет запланированных задач</p><p style="font-size:12px;margin-top:4px;opacity:.7">Дважды кликните на слот или нажмите «+ Задача»</p>`;
     layer.appendChild(es);
     return;
   }
