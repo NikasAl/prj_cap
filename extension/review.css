@@ -213,6 +213,155 @@ body {
   letter-spacing: .04em;
 }
 
+/* ── Chart ── */
+.chart-section {
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border);
+}
+
+.chart-header {
+  margin-bottom: 14px;
+}
+
+.chart-header h2 {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+
+.chart {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.chart-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.chart-label {
+  width: 52px;
+  flex-shrink: 0;
+  font-size: 11px;
+  color: var(--muted);
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.chart-bar-wrap {
+  flex: 1;
+  height: 24px;
+  background: var(--border-light);
+  border-radius: 4px;
+  overflow: hidden;
+  display: flex;
+  position: relative;
+}
+
+.chart-bar-seg {
+  height: 100%;
+  transition: width .3s ease;
+  position: relative;
+  min-width: 0;
+}
+
+.chart-bar-seg:first-child {
+  border-radius: 4px 0 0 4px;
+}
+
+.chart-bar-seg:last-child {
+  border-radius: 0 4px 4px 0;
+}
+
+.chart-bar-seg:only-child {
+  border-radius: 4px;
+}
+
+.chart-bar-wrap:hover .chart-bar-seg {
+  filter: brightness(1.15);
+}
+
+/* Tooltip on hover */
+.chart-bar-seg::after {
+  content: attr(data-tip);
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--text);
+  color: var(--bg);
+  font-size: 11px;
+  padding: 3px 8px;
+  border-radius: 4px;
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity .15s;
+  z-index: 10;
+  font-variant-numeric: tabular-nums;
+}
+
+.chart-bar-wrap:hover .chart-bar-seg:hover::after {
+  opacity: 1;
+}
+
+.chart-value {
+  width: 56px;
+  flex-shrink: 0;
+  font-size: 11px;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+  text-align: left;
+}
+
+.chart-empty {
+  text-align: center;
+  color: var(--muted);
+  font-size: 12px;
+  padding: 16px 0;
+  opacity: .7;
+  margin-bottom: 8px;
+}
+
+.chart-legend {
+  display: flex;
+  gap: 14px;
+  flex-wrap: wrap;
+  margin-top: 10px;
+}
+
+.chart-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.chart-legend-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+  flex-shrink: 0;
+}
+
+.chart-total-row {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  margin-top: 4px;
+  gap: 10px;
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.chart-total-row .chart-value {
+  font-weight: 600;
+  color: var(--text);
+}
+
 /* ── Tasks section ── */
 .tasks-section {
   flex: 1;

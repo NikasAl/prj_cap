@@ -195,6 +195,132 @@ function renderStats() {
   `;
 }
 
+/* ── Workload chart ── */
+
+function renderChart() {
+  const chartEl = $("chart");
+  const emptyEl = $("chartEmpty");
+  const legendEl = $("chartLegend");
+  chartEl.innerHTML = "";
+  legendEl.innerHTML = "";
+
+  const { dates } = getPeriodDates();
+  const isWeekMode = dates.length > 1;
+
+  // Filter projects
+  let targetProjects = projects;
+  if (filterPid) targetProjects = projects.filter((p) => p.id === filterPid);
+
+  // Build data: { date -> { projectId -> minutes } }
+  const dayData = {};
+  let maxMin = 0;
+  let hasAnyData = false;
+
+  for (const ds of dates) {
+    dayData[ds] = {};
+    for (const proj of targetProjects) {
+      dayData[ds][proj.id] = 0;
+    }
+  }
+
+  for (const t of tasks) {
+    if (t.status !== "done" || !t.doneAt) continue;
+    if (!t.duration) continue;
+    const doneDate = fmtD(new Date(t.doneAt));
+    if (!(doneDate in dayData)) continue;
+    if (filterPid && String(t.projectId) !== String(filterPid)) continue;
+    const pid = String(t.projectId);
+    const mins = t.duration * SLOT_MIN;
+    dayData[doneDate][pid] = (dayData[doneDate][pid] || 0) + mins;
+    if (mins > 0) hasAnyData = true;
+  }
+
+  if (!hasAnyData) {
+    emptyEl.classList.remove("hidden");
+    return;
+  }
+  emptyEl.classList.add("hidden");
+
+  // Find max across all days for scale
+  for (const ds of dates) {
+    const dayTotal = Object.values(dayData[ds]).reduce((s, v) => s + v, 0);
+    if (dayTotal > maxMin) maxMin = dayTotal;
+  }
+
+  // Collect active project IDs (those with data)
+  const activePids = new Set();
+  for (const ds of dates) {
+    for (const [pid, mins] of Object.entries(dayData[ds])) {
+      if (mins > 0) activePids.add(pid);
+    }
+  }
+
+  // Render each day row
+  let grandTotal = 0;
+  for (const ds of dates) {
+    const dayTotal = Object.values(dayData[ds]).reduce((s, v) => s + v, 0);
+    grandTotal += dayTotal;
+
+    const row = document.createElement("div");
+    row.className = "chart-row";
+
+    // Day label
+    const label = document.createElement("div");
+    label.className = "chart-label";
+    if (isWeekMode) {
+      const [, m, d] = ds.split("-").map(Number);
+      label.innerHTML = `${d} ${MONTHS_RU[m - 1].slice(0, 3)}<br><span style=\"font-size:9px;opacity:.7\">${dowRu(ds)}</span>`;
+    } else {
+      label.textContent = dowRu(ds);
+    }
+    row.appendChild(label);
+
+    // Bar
+    const barWrap = document.createElement("div");
+    barWrap.className = "chart-bar-wrap";
+
+    for (const proj of targetProjects) {
+      const mins = dayData[ds][proj.id] || 0;
+      if (mins <= 0) continue;
+      const color = projColor(proj.id, proj.color || null);
+      const pct = maxMin > 0 ? (mins / maxMin) * 100 : 0;
+
+      const seg = document.createElement("div");
+      seg.className = "chart-bar-seg";
+      seg.style.width = `${pct}%`;
+      seg.style.background = color;
+      seg.setAttribute("data-tip", `${proj.name}: ${fmtMinutes(mins)}`);
+      barWrap.appendChild(seg);
+    }
+
+    row.appendChild(barWrap);
+
+    // Value
+    const value = document.createElement("div");
+    value.className = "chart-value";
+    value.textContent = dayTotal > 0 ? fmtMinutes(dayTotal) : "—";
+    row.appendChild(value);
+
+    chartEl.appendChild(row);
+  }
+
+  // Grand total
+  const totalRow = document.createElement("div");
+  totalRow.className = "chart-total-row";
+  totalRow.innerHTML = `<span>Итого</span><span class="chart-value">${fmtMinutes(grandTotal)}</span>`;
+  chartEl.appendChild(totalRow);
+
+  // Legend
+  for (const proj of targetProjects.sort((a, b) => a.name.localeCompare(b.name))) {
+    if (!activePids.has(proj.id)) continue;
+    const color = projColor(proj.id, proj.color || null);
+    const item = document.createElement("div");
+    item.className = "chart-legend-item";
+    item.innerHTML = `<span class="chart-legend-dot" style="background:${color}"></span>${escHtml(proj.name)}`;
+    legendEl.appendChild(item);
+  }
+}
+
 /* ── Task list ── */
 
 function renderTasks() {
@@ -297,6 +423,7 @@ async function loadAndRender() {
   renderFilter();
   renderSummary();
   renderStats();
+  renderChart();
   renderTasks();
 }
 
@@ -321,6 +448,7 @@ function init() {
     filterPid = $("projectFilter").value;
     renderSummary();
     renderStats();
+    renderChart();
     renderTasks();
   });
 
