@@ -150,7 +150,7 @@ function webmToWavBlob(webmBlob) {
 async function startRecording() {
   const authKey = await getSberAuthKey();
   if (!authKey) {
-    toast("Нужен Authorization Key Сбера. Нажмите ⚙️ рядом с микрофоном.", "err");
+    toast("Нужен Authorization Key Сбера. Нажмите кнопку настроек рядом с микрофоном.", "err");
     return;
   }
 
@@ -240,7 +240,7 @@ async function transcribeWithSber(audioBlob) {
 
     if (!resp.ok) {
       const errText = await resp.text();
-      if (resp.status === 401) toast("Токен отклонён. Проверьте данные Сбера (⚙️).", "err");
+      if (resp.status === 401) toast("Токен отклонён. Проверьте данные Сбера.", "err");
       else toast(`Ошибка распознавания: ${resp.status}`, "err");
       setMicIcon(MIC_IDLE_SVG);
       return;
