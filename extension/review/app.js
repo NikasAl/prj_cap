@@ -11,7 +11,7 @@ const $ = (id) => document.getElementById(id);
 /* ── State ── */
 
 let curDate = new Date();
-let viewMode = "week"; // "day" | "week"
+let viewMode = "week"; // "day" | "week" | "month"
 let filterPid = "";
 let projects = [];
 let tasks = [];
@@ -22,6 +22,16 @@ function getPeriodDates() {
   if (viewMode === "day") {
     const ds = fmtD(curDate);
     return { start: ds, end: ds, dates: [ds] };
+  }
+  if (viewMode === "month") {
+    // Last 30 days ending at curDate
+    const dates = [];
+    for (let i = 29; i >= 0; i--) {
+      const dd = new Date(curDate);
+      dd.setDate(dd.getDate() - i);
+      dates.push(fmtD(dd));
+    }
+    return { start: dates[0], end: dates[dates.length - 1], dates };
   }
   // Week: Monday to Sunday
   const d = new Date(curDate);
@@ -40,8 +50,10 @@ function getPeriodDates() {
 function navPeriod(dir) {
   if (viewMode === "day") {
     curDate.setDate(curDate.getDate() + dir);
-  } else {
+  } else if (viewMode === "week") {
     curDate.setDate(curDate.getDate() + dir * 7);
+  } else {
+    curDate.setDate(curDate.getDate() + dir * 30);
   }
   loadAndRender();
 }
@@ -55,7 +67,7 @@ function renderPeriodLabel() {
     const ds = dates[0];
     const isToday = ds === fmtD(new Date());
     lbl.innerHTML = `${fmtDateRu(ds)} ${curDate.getFullYear()} <span style="color:var(--muted);font-weight:400;margin-left:6px">${dowRu(ds)}</span>${isToday ? " — сегодня" : ""}`;
-  } else {
+  } else if (viewMode === "week") {
     const first = dates[0];
     const last = dates[6];
     const [, m1, d1] = first.split("-").map(Number);
@@ -64,6 +76,17 @@ function renderPeriodLabel() {
       lbl.textContent = `${d1} – ${d2} ${MONTHS_RU[m1 - 1]} ${curDate.getFullYear()}`;
     } else {
       lbl.textContent = `${d1} ${MONTHS_RU[m1 - 1].slice(0, 3)} – ${d2} ${MONTHS_RU[m2 - 1]} ${curDate.getFullYear()}`;
+    }
+  } else {
+    // Month: show first – last
+    const first = dates[0];
+    const last = dates[dates.length - 1];
+    const [, m1, d1] = first.split("-").map(Number);
+    const [, m2, d2] = last.split("-").map(Number);
+    if (m1 === m2) {
+      lbl.textContent = `${d1} – ${d2} ${MONTHS_RU[m1 - 1]} ${curDate.getFullYear()}`;
+    } else {
+      lbl.textContent = `${d1} ${MONTHS_RU[m1 - 1].slice(0, 3)} – ${d2} ${MONTHS_RU[m2 - 1].slice(0, 3)} ${curDate.getFullYear()}`;
     }
   }
 }
@@ -206,6 +229,15 @@ function renderChart() {
 
   const { dates } = getPeriodDates();
   const isWeekMode = dates.length > 1;
+  const isMonthMode = dates.length > 7;
+
+  // For month mode, wrap chart in scrollable container
+  let chartContainer = chartEl;
+  if (isMonthMode) {
+    chartContainer = document.createElement("div");
+    chartContainer.className = "chart-month-wrap";
+    chartEl.appendChild(chartContainer);
+  }
 
   // Filter projects
   let targetProjects = projects;
@@ -262,12 +294,15 @@ function renderChart() {
     grandTotal += dayTotal;
 
     const row = document.createElement("div");
-    row.className = "chart-row";
+    row.className = "chart-row" + (isMonthMode ? " chart-row-compact" : "");
 
     // Day label
     const label = document.createElement("div");
-    label.className = "chart-label";
-    if (isWeekMode) {
+    label.className = "chart-label" + (isMonthMode ? " chart-label-compact" : "");
+    if (isMonthMode) {
+      const [, m, d] = ds.split("-").map(Number);
+      label.textContent = `${d}.${m}`;
+    } else if (isWeekMode) {
       const [, m, d] = ds.split("-").map(Number);
       label.innerHTML = `${d} ${MONTHS_RU[m - 1].slice(0, 3)}<br><span style=\"font-size:9px;opacity:.7\">${dowRu(ds)}</span>`;
     } else {
@@ -297,18 +332,18 @@ function renderChart() {
 
     // Value
     const value = document.createElement("div");
-    value.className = "chart-value";
+    value.className = "chart-value" + (isMonthMode ? " chart-value-compact" : "");
     value.textContent = dayTotal > 0 ? fmtMinutes(dayTotal) : "—";
     row.appendChild(value);
 
-    chartEl.appendChild(row);
+    chartContainer.appendChild(row);
   }
 
   // Grand total
   const totalRow = document.createElement("div");
   totalRow.className = "chart-total-row";
   totalRow.innerHTML = `<span>Итого</span><span class="chart-value">${fmtMinutes(grandTotal)}</span>`;
-  chartEl.appendChild(totalRow);
+  chartContainer.appendChild(totalRow);
 
   // Legend
   for (const proj of targetProjects.sort((a, b) => a.name.localeCompare(b.name))) {

@@ -362,6 +362,35 @@ body {
   color: var(--text);
 }
 
+/* ── Chart compact (month mode) ── */
+.chart-row-compact { gap: 6px; }
+
+.chart-label-compact {
+  width: 38px;
+  font-size: 10px;
+  text-align: left;
+}
+
+.chart-row-compact .chart-bar-wrap {
+  height: 16px;
+  border-radius: 3px;
+}
+
+.chart-value-compact {
+  width: 48px;
+  font-size: 10px;
+}
+
+.chart-row-compact .chart-bar-seg::after {
+  font-size: 10px;
+  padding: 2px 6px;
+}
+
+.chart-month-wrap {
+  max-height: 400px;
+  overflow-y: auto;
+}
+
 /* ── Tasks section ── */
 .tasks-section {
   flex: 1;
