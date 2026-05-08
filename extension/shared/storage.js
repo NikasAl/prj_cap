@@ -3,11 +3,13 @@
  * Used by popup.js, timeline.js, and background.js.
  */
 
-const STORAGE_KEYS = ["projects", "tasks", "lastProjectId"];
+const STORAGE_KEYS = ["projects", "tasks", "recurring", "lastProjectId"];
 
 /**
- * @typedef {{ id: string, name: string, chatUrl: string, instructionPrefix?: string, agentTail?: string, inputSelector?: string }} Project
+ * @typedef {{ id: string, name: string, chatUrl: string, color?: string, instructionPrefix?: string, agentTail?: string, inputSelector?: string }} Project
  * @typedef {{ id: string, projectId: string, taskText: string, status: 'open'|'sent'|'done', createdAt: string, sentAt?: string, doneAt?: string, scheduledDate?: string, scheduledTime?: string, duration?: number }} Task
+ * @typedef {{ id: string, projectId: string, taskText: string, scheduledTime: string, duration: number, daysOfWeek: number[], enabled: boolean }} RecurringTask
+ *   daysOfWeek: [0=Sun, 1=Mon, ..., 6=Sat]
  */
 
 /** Generate a unique ID */
@@ -22,6 +24,7 @@ export async function loadState() {
   return {
     projects: Array.isArray(d.projects) ? d.projects : [],
     tasks: Array.isArray(d.tasks) ? d.tasks : [],
+    recurring: Array.isArray(d.recurring) ? d.recurring : [],
     lastProjectId: d.lastProjectId || null,
   };
 }

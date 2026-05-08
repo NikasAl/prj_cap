@@ -26,6 +26,19 @@ export async function loadAndRender() {
   updateNowLine();
 }
 
+/** Load, spawn recurring for today, then render */
+export async function loadSpawnAndRender() {
+  await reload();
+  const ds = dateStr();
+  const { spawnRecurringForDate } = await import("./recurring.js");
+  await spawnRecurringForDate(ds);
+  renderDateLabel();
+  renderFilter();
+  renderCards();
+  renderUnscheduled();
+  updateNowLine();
+}
+
 /* ── Date label ── */
 
 export function renderDateLabel() {

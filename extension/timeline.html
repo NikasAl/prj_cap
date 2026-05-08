@@ -25,6 +25,7 @@
       <button type="button" id="btnAddTask" class="btn primary btn-add">+ Задача</button>
       <button type="button" id="btnOpenReview" class="btn btn-settings" title="Обзор выполненных задач">Обзор</button>
       <button type="button" id="btnManageProjects" class="btn btn-settings" title="Управление проектами">Проекты</button>
+      <button type="button" id="btnRecurring" class="btn btn-settings" title="Периодические задачи">Повтор</button>
     </div>
   </div>
 
@@ -122,6 +123,50 @@
         <button type="button" id="btnProjSave" class="btn primary">Сохранить</button>
         <button type="button" id="btnProjDelete" class="btn danger hidden">Удалить</button>
         <button type="button" id="btnProjCancel" class="btn">Отмена</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Recurring Tasks Modal -->
+  <div class="modal-overlay hidden" id="recurringModalOverlay">
+    <div class="modal modal-recurring">
+      <div class="modal-hdr-row">
+        <h2>Периодические задачи</h2>
+        <button type="button" id="btnRecurringClose" class="btn-icon modal-close-btn" title="Закрыть">x</button>
+      </div>
+
+      <!-- Add new form -->
+      <div class="rec-form">
+        <div class="rec-form-row">
+          <select id="recProject" class="ctl"></select>
+          <input type="time" id="recTime" class="ctl rec-time-ctl" value="09:00" step="900" />
+          <select id="recDuration" class="ctl rec-dur-ctl">
+            <option value="1">15 мин</option>
+            <option value="2" selected>30 мин</option>
+            <option value="3">45 мин</option>
+            <option value="4">1 час</option>
+            <option value="6">1.5 ч</option>
+            <option value="8">2 часа</option>
+          </select>
+        </div>
+        <input type="text" id="recText" class="ctl" placeholder="Текст задачи…" />
+        <div class="rec-dow-row">
+          <label class="rec-dow"><input type="checkbox" id="recDow1" /><span>Пн</span></label>
+          <label class="rec-dow"><input type="checkbox" id="recDow2" /><span>Вт</span></label>
+          <label class="rec-dow"><input type="checkbox" id="recDow3" /><span>Ср</span></label>
+          <label class="rec-dow"><input type="checkbox" id="recDow4" /><span>Чт</span></label>
+          <label class="rec-dow"><input type="checkbox" id="recDow5" /><span>Пт</span></label>
+          <label class="rec-dow"><input type="checkbox" id="recDow6" /><span>Сб</span></label>
+          <label class="rec-dow"><input type="checkbox" id="recDow0" /><span>Вс</span></label>
+        </div>
+        <button type="button" id="btnRecSave" class="btn primary rec-save-btn">Добавить</button>
+      </div>
+
+      <!-- Existing list -->
+      <div class="rec-list-wrap">
+        <div class="rec-list-label">Все шаблоны</div>
+        <div class="rec-list" id="recurringList"></div>
+        <p id="recurringEmpty" class="rec-empty hidden">Нет периодических задач</p>
       </div>
     </div>
   </div>

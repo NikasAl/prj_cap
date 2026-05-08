@@ -2,11 +2,12 @@
  * Timeline app — initialization, event wiring, keyboard shortcuts.
  * Entry point for timeline.html.
  */
-import { loadAndRender, buildTimeLabels, buildSlotGrid, updateNowLine, scrollToNow } from "./render.js";
+import { loadAndRender, loadSpawnAndRender, buildTimeLabels, buildSlotGrid, updateNowLine, scrollToNow } from "./render.js";
 import { navDate, goToday, onFilterChange } from "./date-nav.js";
 import { setupCardDragDelegation, setupTimelineDrop, setupSidebarDrop, setupDayDrop } from "./drag-drop.js";
 import { setupModalDelegation, closeModal, openModal } from "./modal.js";
 import { setupProjectModal, closeProjectModal } from "./project-modal.js";
+import { setupRecurring, spawnRecurringForDate, populateRecProjectSelector } from "./recurring.js";
 import { initVoiceInput, toggleRecording } from "./voice.js";
 import { buildTaskMessage } from "../shared/message-builder.js";
 import { tl, reload } from "./state.js";
@@ -40,6 +41,9 @@ function init() {
   // Project modal
   setupProjectModal();
 
+  // Recurring tasks
+  setupRecurring();
+
   // Card action buttons: chat & copy prompt (event delegation)
   setupCardActions();
 
@@ -72,15 +76,15 @@ function init() {
   // Sidebar resize
   initSidebarResize();
 
-  // Initial render
-  loadAndRender().then(scrollToNow);
+  // Initial render (spawn recurring tasks for today)
+  loadSpawnAndRender().then(scrollToNow);
 
   // Periodic now-line update
   setInterval(updateNowLine, 30000);
 
   // Sync with storage changes from popup / background
   chrome.storage.onChanged.addListener((changes) => {
-    if (changes.projects || changes.tasks) loadAndRender();
+    if (changes.projects || changes.tasks || changes.recurring) loadAndRender();
   });
 }
 

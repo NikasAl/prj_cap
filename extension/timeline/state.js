@@ -6,7 +6,7 @@
 import { loadState, saveState } from "../shared/storage.js";
 import { fmtD } from "../shared/date-utils.js";
 
-/** @type {{ curDate: Date, filterPid: string, editId: string|null, dragId: string|null, projects: Project[], tasks: Task[] }} */
+/** @type {{ curDate: Date, filterPid: string, editId: string|null, dragId: string|null, projects: Project[], tasks: Task[], recurring: RecurringTask[] }} */
 export const tl = {
   curDate: new Date(),
   filterPid: "",
@@ -14,13 +14,15 @@ export const tl = {
   dragId: null,
   projects: [],
   tasks: [],
+  recurring: [],
 };
 
-/** Reload projects+tasks from storage into tl */
+/** Reload projects+tasks+recurring from storage into tl */
 export async function reload() {
   const s = await loadState();
   tl.projects = s.projects;
   tl.tasks = s.tasks;
+  tl.recurring = s.recurring || [];
 }
 
 /** Persist tasks array to storage and update tl.tasks */
@@ -33,6 +35,12 @@ export async function persistTasks(tasks) {
 export async function persistProjects(projects) {
   await saveState({ projects });
   tl.projects = projects;
+}
+
+/** Persist recurring tasks array to storage and update tl.recurring */
+export async function persistRecurring(recurring) {
+  await saveState({ recurring });
+  tl.recurring = recurring;
 }
 
 /** Current timeline date as YYYY-MM-DD */
