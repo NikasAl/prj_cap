@@ -52,19 +52,14 @@ export async function spawnRecurringForDate(dateString) {
 
 /** Task ID to link after creating a recurring template from it */
 let _sourceTaskId = null;
+/** ID of the recurring template being edited (null = add mode) */
+let _editId = null;
 
 export function openRecurringModal(prefill = null) {
-  renderRecurringList();
-
-  // Reset form
-  $("recText").value = "";
-  $("recTime").value = "09:00";
-  $("recDuration").value = "2";
-  for (let d = 0; d <= 6; d++) {
-    const cb = document.getElementById("recDow" + d);
-    if (cb) cb.checked = false;
-  }
+  _editId = null;
   _sourceTaskId = null;
+  resetRecForm();
+  renderRecurringList();
 
   // Pre-fill from task data if provided
   if (prefill) {
@@ -81,12 +76,38 @@ export function openRecurringModal(prefill = null) {
     _sourceTaskId = prefill.taskId || null;
   }
 
+  updateRecFormMode();
   $("recurringModalOverlay").classList.remove("hidden");
 }
 
 export function closeRecurringModal() {
   $("recurringModalOverlay").classList.add("hidden");
+  _editId = null;
   _sourceTaskId = null;
+}
+
+/** Reset form to default empty state */
+function resetRecForm() {
+  $("recText").value = "";
+  $("recTime").value = "09:00";
+  $("recDuration").value = "2";
+  for (let d = 0; d <= 6; d++) {
+    const cb = document.getElementById("recDow" + d);
+    if (cb) cb.checked = false;
+  }
+}
+
+/** Update button labels based on add/edit mode */
+function updateRecFormMode() {
+  const saveBtn = $("btnRecSave");
+  const cancelBtn = $("btnRecCancel");
+  if (_editId) {
+    saveBtn.textContent = "Сохранить";
+    cancelBtn.classList.remove("hidden");
+  } else {
+    saveBtn.textContent = "Добавить";
+    cancelBtn.classList.add("hidden");
+  }
 }
 
 /* ── Render the list ── */
@@ -127,6 +148,7 @@ function renderRecurringList() {
       </div>
       <div class="recurring-actions">
         <button type="button" class="recurring-toggle" data-rid="${r.id}" title="${r.enabled ? "Отключить" : "Включить"}">${r.enabled ? "ON" : "OFF"}</button>
+        <button type="button" class="recurring-edit" data-rid="${r.id}" title="Редактировать">edit</button>
         <button type="button" class="recurring-del" data-rid="${r.id}" title="Удалить">x</button>
       </div>
     `;
@@ -160,7 +182,38 @@ async function deleteRecurring(rid) {
   toast("Шаблон удалён", "ok");
 }
 
-/* ── Save new recurring task ── */
+/* ── Edit recurring template ── */
+
+function editRecurring(rid) {
+  const r = tl.recurring.find((x) => x.id === rid);
+  if (!r) return;
+
+  _editId = rid;
+  _sourceTaskId = null;
+
+  // Populate form from template
+  $("recProject").value = r.projectId;
+  $("recText").value = r.taskText;
+  $("recTime").value = r.scheduledTime;
+  $("recDuration").value = String(r.duration);
+  for (let d = 0; d <= 6; d++) {
+    const cb = document.getElementById("recDow" + d);
+    if (cb) cb.checked = r.daysOfWeek.includes(d);
+  }
+
+  updateRecFormMode();
+  $("recText").focus();
+}
+
+/** Cancel edit mode, reset form */
+function cancelRecEdit() {
+  _editId = null;
+  _sourceTaskId = null;
+  resetRecForm();
+  updateRecFormMode();
+}
+
+/* ── Save recurring task (create or update) ── */
 
 async function saveRecurring() {
   const pid = $("recProject").value;
@@ -182,38 +235,45 @@ async function saveRecurring() {
 
   await reload();
 
-  const entry = {
-    id: uid(),
-    projectId: pid,
-    taskText: text,
-    scheduledTime: time,
-    duration: dur,
-    daysOfWeek: days,
-    enabled: true,
-  };
-
-  await persistRecurring([...tl.recurring, entry]);
-
-  // Link the source task to the newly created recurring template
-  if (_sourceTaskId) {
-    const tasks = tl.tasks.map((t) =>
-      t.id === _sourceTaskId ? { ...t, recurringId: entry.id } : t
+  if (_editId) {
+    // Update existing template
+    const recurring = tl.recurring.map((r) =>
+      r.id === _editId
+        ? { ...r, projectId: pid, taskText: text, scheduledTime: time, duration: dur, daysOfWeek: days }
+        : r
     );
-    await persistTasks(tasks);
-    _sourceTaskId = null;
+    await persistRecurring(recurring);
+    _editId = null;
+    toast("Шаблон обновлён", "ok");
+  } else {
+    // Create new template
+    const entry = {
+      id: uid(),
+      projectId: pid,
+      taskText: text,
+      scheduledTime: time,
+      duration: dur,
+      daysOfWeek: days,
+      enabled: true,
+    };
+
+    await persistRecurring([...tl.recurring, entry]);
+
+    // Link the source task to the newly created recurring template
+    if (_sourceTaskId) {
+      const tasks = tl.tasks.map((t) =>
+        t.id === _sourceTaskId ? { ...t, recurringId: entry.id } : t
+      );
+      await persistTasks(tasks);
+      _sourceTaskId = null;
+    }
+
+    toast("Периодическая задача добавлена", "ok");
   }
 
   renderRecurringList();
-
-  // Reset form
-  $("recText").value = "";
-  $("recTime").value = "09:00";
-  $("recDuration").value = "2";
-  for (let d = 0; d <= 6; d++) {
-    const cb = document.getElementById("recDow" + d);
-    if (cb) cb.checked = false;
-  }
-  toast("Периодическая задача добавлена", "ok");
+  resetRecForm();
+  updateRecFormMode();
 }
 
 /* ── Helper ── */
@@ -241,12 +301,18 @@ export function setupRecurring() {
       toggleRecurring(toggleBtn.dataset.rid);
       return;
     }
+    const editBtn = e.target.closest(".recurring-edit");
+    if (editBtn) {
+      editRecurring(editBtn.dataset.rid);
+      return;
+    }
     const delBtn = e.target.closest(".recurring-del");
     if (delBtn) {
       deleteRecurring(delBtn.dataset.rid);
       return;
     }
   });
+  $("btnRecCancel").addEventListener("click", cancelRecEdit);
 
   // Keyboard: Escape to close
   document.addEventListener("keydown", (e) => {
