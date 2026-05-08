@@ -7,6 +7,7 @@ import { uid } from "../shared/storage.js";
 import { tl, reload, persistTasks, dateStr } from "./state.js";
 import { renderCards, renderUnscheduled, loadAndRender, scrollToNow } from "./render.js";
 import { cleanupRecording } from "./voice.js";
+import { openRecurringModal } from "./recurring.js";
 import { toast } from "./ui.js";
 
 const $ = (id) => document.getElementById(id);
@@ -43,6 +44,12 @@ export function openModal(mode, slotIndex = null, taskId = null) {
     $("mStatus").value = t.status || "open";
     $("mStatusWrap").classList.remove("hidden");
     $("btnMDelete").classList.remove("hidden");
+    // Show "Make recurring" only if task is not already linked to a template
+    if (t.recurringId) {
+      $("btnMMakeRecurring").classList.add("hidden");
+    } else {
+      $("btnMMakeRecurring").classList.remove("hidden");
+    }
   } else {
     title.textContent = "Новая задача";
     pSel.value = tl.filterPid || (tl.projects[0] ? tl.projects[0].id : "");
@@ -53,6 +60,7 @@ export function openModal(mode, slotIndex = null, taskId = null) {
     $("mStatus").value = "open";
     $("mStatusWrap").classList.add("hidden");
     $("btnMDelete").classList.add("hidden");
+    $("btnMMakeRecurring").classList.add("hidden");
   }
 
   $("modalOverlay").classList.remove("hidden");
@@ -196,4 +204,24 @@ export function setupModalDelegation() {
   $("btnMSave").addEventListener("click", saveModal);
   $("btnMDelete").addEventListener("click", deleteModal);
   $("btnMCancel").addEventListener("click", closeModal);
+  $("btnMMakeRecurring").addEventListener("click", makeRecurringFromTask);
+}
+
+/* ── Convert task to recurring ── */
+
+function makeRecurringFromTask() {
+  if (!tl.editId) return;
+  const t = tl.tasks.find((x) => x.id === tl.editId);
+  if (!t) return;
+
+  closeModal();
+
+  openRecurringModal({
+    taskId: t.id,
+    projectId: t.projectId,
+    taskText: t.taskText,
+    scheduledTime: t.scheduledTime || "09:00",
+    duration: t.duration || 2,
+    scheduledDate: t.scheduledDate || dateStr(),
+  });
 }

@@ -50,13 +50,43 @@ export async function spawnRecurringForDate(dateString) {
 
 /* ── Open / Close recurring modal ── */
 
-export function openRecurringModal() {
+/** Task ID to link after creating a recurring template from it */
+let _sourceTaskId = null;
+
+export function openRecurringModal(prefill = null) {
   renderRecurringList();
+
+  // Reset form
+  $("recText").value = "";
+  $("recTime").value = "09:00";
+  $("recDuration").value = "2";
+  for (let d = 0; d <= 6; d++) {
+    const cb = document.getElementById("recDow" + d);
+    if (cb) cb.checked = false;
+  }
+  _sourceTaskId = null;
+
+  // Pre-fill from task data if provided
+  if (prefill) {
+    $("recProject").value = prefill.projectId || "";
+    $("recText").value = prefill.taskText || "";
+    $("recTime").value = prefill.scheduledTime || "09:00";
+    $("recDuration").value = String(prefill.duration || 2);
+    // Check the day of week of the task's scheduled date
+    if (prefill.scheduledDate) {
+      const dow = new Date(prefill.scheduledDate + "T00:00:00").getDay();
+      const cb = document.getElementById("recDow" + dow);
+      if (cb) cb.checked = true;
+    }
+    _sourceTaskId = prefill.taskId || null;
+  }
+
   $("recurringModalOverlay").classList.remove("hidden");
 }
 
 export function closeRecurringModal() {
   $("recurringModalOverlay").classList.add("hidden");
+  _sourceTaskId = null;
 }
 
 /* ── Render the list ── */
@@ -163,10 +193,22 @@ async function saveRecurring() {
   };
 
   await persistRecurring([...tl.recurring, entry]);
+
+  // Link the source task to the newly created recurring template
+  if (_sourceTaskId) {
+    const tasks = tl.tasks.map((t) =>
+      t.id === _sourceTaskId ? { ...t, recurringId: entry.id } : t
+    );
+    await persistTasks(tasks);
+    _sourceTaskId = null;
+  }
+
   renderRecurringList();
 
   // Reset form
   $("recText").value = "";
+  $("recTime").value = "09:00";
+  $("recDuration").value = "2";
   for (let d = 0; d <= 6; d++) {
     const cb = document.getElementById("recDow" + d);
     if (cb) cb.checked = false;
