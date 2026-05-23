@@ -15,10 +15,14 @@ import { projColor } from "../shared/colors.js";
 let history = [];
 let isOpen = false;
 let isLoading = false;
+let isContextMode = false;
+/** Custom system prompt override (user-edited) */
+let customSystemPrompt = null;
 
 /* ── DOM refs ── */
 
 let panel, messagesEl, inputEl, sendBtn, typingEl, emptyEl, toggleBtn;
+let contextEl, contextTextarea, contextWrap;
 
 /* ── Public API ── */
 
@@ -58,11 +62,23 @@ function createPanel() {
     <div class="assistant-resize" title="Перетащите для изменения размера"></div>
     <div class="assistant-hdr">
       <div class="assistant-hdr-title"><span class="ai-dot"></span> AI-ассистент</div>
+      <button type="button" class="assistant-hdr-btn" id="asstBtnContext" title="Просмотр/редактирование контекста">&#128220;</button>
       <button type="button" class="assistant-hdr-btn" id="asstBtnClear" title="Очистить историю">\u{1F5D1}</button>
       <button type="button" class="assistant-hdr-btn" id="asstBtnClose" title="Закрыть">\u2715</button>
     </div>
     <div class="assistant-messages" id="asstMessages"></div>
-    <div class="assistant-input">
+    <div class="asst-context hidden" id="asstContext">
+      <div class="asst-context-hdr">
+        <span>Контекст ассистента (системный промпт)</span>
+        <div class="asst-context-actions">
+          <button type="button" class="assistant-hdr-btn" id="asstBtnResetCtx" title="Пересобрать из текущих данных">&#8635;</button>
+          <button type="button" class="assistant-hdr-btn" id="asstBtnBackChat" title="Назад к чату">&#8592; Чат</button>
+        </div>
+      </div>
+      <p class="asst-context-hint">Здесь можно увидеть и отредактировать данные, которые отправляются к AI. Изменения будут использованы в следующем запросе.</p>
+      <textarea class="asst-context-area" id="asstContextArea"></textarea>
+    </div>
+    <div class="assistant-input" id="asstInputWrap">
       <textarea id="asstInput" rows="1" placeholder="Спросите что-нибудь о задачах..."></textarea>
       <button type="button" class="assistant-send" id="asstSend" title="Отправить (Enter)">&#10148;</button>
     </div>
@@ -72,9 +88,18 @@ function createPanel() {
   messagesEl = panel.querySelector('#asstMessages');
   inputEl = panel.querySelector('#asstInput');
   sendBtn = panel.querySelector('#asstSend');
+  contextWrap = panel.querySelector('#asstContext');
+  contextTextarea = panel.querySelector('#asstContextArea');
 
   panel.querySelector('#asstBtnClose').addEventListener('click', closePanel);
   panel.querySelector('#asstBtnClear').addEventListener('click', clearHistory);
+  panel.querySelector('#asstBtnContext').addEventListener('click', () => showContextView());
+  panel.querySelector('#asstBtnResetCtx').addEventListener('click', resetContext);
+  panel.querySelector('#asstBtnBackChat').addEventListener('click', showChatView);
+
+  contextTextarea.addEventListener('input', () => {
+    customSystemPrompt = contextTextarea.value;
+  });
 
   initResize();
 }
@@ -164,7 +189,7 @@ async function handleSend() {
   showTyping(true);
 
   try {
-    const systemPrompt = buildSystemPrompt();
+    const systemPrompt = customSystemPrompt || buildSystemPrompt();
     const response = await chrome.runtime.sendMessage({
       action: 'LLM_CHAT',
       payload: { systemPrompt, userMessage: text },
@@ -197,7 +222,7 @@ function buildSystemPrompt() {
   const now = new Date();
   const timeStr = now.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
 
-  // Projects summary
+  // Projects summary with extended fields
   const projectsInfo = tl.projects.map(p => {
     const pTasks = tl.tasks.filter(t => String(t.projectId) === String(p.id));
     const open = pTasks.filter(t => t.status === 'open').length;
@@ -205,7 +230,14 @@ function buildSystemPrompt() {
     const done = pTasks.filter(t => t.status === 'done').length;
     const total = pTasks.length;
     const pct = total > 0 ? Math.round((done / total) * 100) : 0;
-    return `- ${p.name} (${pct}% выполнено): ${open} открытых, ${sent} отправленных, ${done} выполненных из ${total}`;
+
+    const priorityMap = { critical: 'Критический', high: 'Высокий', medium: 'Средний', low: 'Низкий' };
+    const priorityStr = p.priority ? ` [${priorityMap[p.priority] || p.priority}]` : '';
+    let line = `- ${p.name}${priorityStr} (${pct}% выполнено: ${open} открытых, ${sent} отправленных, ${done} выполненных из ${total})`;
+    if (p.description) line += `\n  Описание: ${p.description}`;
+    if (p.goals) line += `\n  Цели: ${p.goals}`;
+    if (p.completionCriteria) line += `\n  Критерии завершения: ${p.completionCriteria}`;
+    return line;
   }).join('\n');
 
   // Tasks scheduled for today
@@ -267,6 +299,29 @@ ${recentDone.length > 0 ? recentDone.join('\n') : 'Нет выполненных
 - Не придумывай задачи, которых нет в списке — работай только с реальными данными.`;
 
   return prompt;
+}
+
+/* ── Context view ── */
+
+function showContextView() {
+  isContextMode = true;
+  messagesEl.classList.add('hidden');
+  contextWrap.classList.remove('hidden');
+  panel.querySelector('#asstInputWrap').classList.add('hidden');
+  contextTextarea.value = customSystemPrompt || buildSystemPrompt();
+}
+
+function showChatView() {
+  isContextMode = false;
+  messagesEl.classList.remove('hidden');
+  contextWrap.classList.add('hidden');
+  panel.querySelector('#asstInputWrap').classList.remove('hidden');
+}
+
+function resetContext() {
+  customSystemPrompt = null;
+  contextTextarea.value = buildSystemPrompt();
+  toast('Контекст пересобран из текущих данных', 'ok');
 }
 
 /* ── Render messages ── */

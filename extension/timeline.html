@@ -121,6 +121,20 @@
       <textarea id="projTail" class="ctl area" rows="2" placeholder="Что делать после выполнения…"></textarea>
       <label class="lbl" for="projSelector">CSS-селектор поля ввода (необязательно)</label>
       <input type="text" id="projSelector" class="ctl" value="textarea" placeholder="textarea, #chat-input, …" />
+      <label class="lbl" for="projDescription">Описание проекта</label>
+      <textarea id="projDescription" class="ctl area" rows="3" placeholder="Краткое описание проекта и его назначения…"></textarea>
+      <label class="lbl" for="projGoals">Цели проекта</label>
+      <textarea id="projGoals" class="ctl area" rows="3" placeholder="Какие цели преследует проект, что должно быть достигнуто…"></textarea>
+      <label class="lbl" for="projPriority">Приоритет</label>
+      <select id="projPriority" class="ctl">
+        <option value="">— не задан —</option>
+        <option value="critical">Критический</option>
+        <option value="high">Высокий</option>
+        <option value="medium">Средний</option>
+        <option value="low">Низкий</option>
+      </select>
+      <label class="lbl" for="projCriteria">Критерии завершения</label>
+      <textarea id="projCriteria" class="ctl area" rows="3" placeholder="По каким признакам считается, что проект завершён…"></textarea>
       <div class="modal-actions">
         <button type="button" id="btnProjSave" class="btn primary">Сохранить</button>
         <button type="button" id="btnProjDelete" class="btn danger hidden">Удалить</button>

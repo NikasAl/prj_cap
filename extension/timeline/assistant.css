@@ -271,6 +271,56 @@
   line-height: 1.5;
 }
 
+/* ── Context editor ── */
+.asst-context {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  padding: 0;
+}
+.asst-context-hdr {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text);
+}
+.asst-context-actions {
+  display: flex;
+  gap: 4px;
+}
+.asst-context-hint {
+  margin: 0;
+  padding: 6px 14px;
+  font-size: 11px;
+  color: var(--muted);
+  opacity: .8;
+  line-height: 1.4;
+  flex-shrink: 0;
+}
+.asst-context-area {
+  flex: 1;
+  margin: 0;
+  padding: 10px 14px;
+  border: none;
+  background: var(--bg);
+  color: var(--text);
+  font-size: 12px;
+  font-family: ui-monospace, 'Consolas', monospace;
+  line-height: 1.5;
+  resize: none;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.asst-context-area:focus {
+  outline: none;
+}
+
 /* ── Responsive ── */
 @media (max-width: 500px) {
   .assistant-panel {

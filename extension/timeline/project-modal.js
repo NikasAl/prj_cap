@@ -62,6 +62,10 @@ export function openProjectModal(projectId = null) {
     $("projPrefix").value = p.instructionPrefix || "";
     $("projTail").value = p.agentTail || "";
     $("projSelector").value = p.inputSelector || "";
+    $("projDescription").value = p.description || "";
+    $("projGoals").value = p.goals || "";
+    $("projPriority").value = p.priority || "";
+    $("projCriteria").value = p.completionCriteria || "";
     renderColorPalette(p.color || null);
     btnDel.classList.remove("hidden");
   } else {
@@ -71,6 +75,10 @@ export function openProjectModal(projectId = null) {
     $("projPrefix").value = "";
     $("projTail").value = "";
     $("projSelector").value = "textarea";
+    $("projDescription").value = "";
+    $("projGoals").value = "";
+    $("projPriority").value = "";
+    $("projCriteria").value = "";
     renderColorPalette(null);
     btnDel.classList.add("hidden");
   }
@@ -92,6 +100,10 @@ export async function saveProject() {
   const instructionPrefix = $("projPrefix").value.trim();
   const agentTail = $("projTail").value.trim();
   const inputSelector = $("projSelector").value.trim();
+  const description = $("projDescription").value.trim();
+  const goals = $("projGoals").value.trim();
+  const priority = $("projPriority").value;
+  const completionCriteria = $("projCriteria").value.trim();
 
   if (!name || !chatUrl) {
     toast("Нужны название и URL чата", "err");
@@ -120,6 +132,10 @@ export async function saveProject() {
     ...(instructionPrefix ? { instructionPrefix } : {}),
     ...(agentTail ? { agentTail } : {}),
     ...(inputSelector ? { inputSelector } : {}),
+    ...(description ? { description } : {}),
+    ...(goals ? { goals } : {}),
+    ...(priority ? { priority } : {}),
+    ...(completionCriteria ? { completionCriteria } : {}),
   };
   const others = tl.projects.filter((p) => p.id !== id);
   await persistProjects([...others, project]);
