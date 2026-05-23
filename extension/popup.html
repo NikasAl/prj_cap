@@ -85,6 +85,29 @@
       </div>
     </section>
 
+    <section class="panel collapsible">
+      <button type="button" class="collapse-toggle" id="toggleLlmSection" aria-expanded="false">
+        AI-ассистент: настройки
+      </button>
+      <div id="llmSectionWrap" class="collapse-body hidden">
+        <label class="lbl">Провайдер</label>
+        <select id="llmProvider" class="ctl">
+          <option value="z-ai">Z-AI (GLM)</option>
+          <option value="openrouter">OpenRouter</option>
+        </select>
+        <label class="lbl">API-ключ</label>
+        <input type="password" id="llmApiKey" class="ctl mono" placeholder="sk-..." />
+        <label class="lbl">Модель</label>
+        <select id="llmModel" class="ctl"></select>
+        <label class="lbl">Своё название модели (необязательно, переопределяет выбор выше)</label>
+        <input type="text" id="llmCustomModel" class="ctl mono" placeholder="Например: google/gemini-2.0-flash-001" />
+        <div class="row gap">
+          <button type="button" id="btnSaveLlm" class="btn primary">Сохранить настройки</button>
+        </div>
+        <p class="data-hint">Ключ хранится локально и отправляется только к выбранному API-провайдеру.</p>
+      </div>
+    </section>
+
     <script type="module" src="popup.js"></script>
   </body>
 </html>

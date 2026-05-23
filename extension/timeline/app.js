@@ -9,6 +9,7 @@ import { setupModalDelegation, closeModal, openModal } from "./modal.js";
 import { setupProjectModal, closeProjectModal } from "./project-modal.js";
 import { setupRecurring, spawnRecurringForDate, populateRecProjectSelector } from "./recurring.js";
 import { initVoiceInput, toggleRecording } from "./voice.js";
+import { initAssistant, toggleAssistant, isAssistantOpen } from "./assistant.js";
 import { buildTaskMessage } from "../shared/message-builder.js";
 import { tl, reload } from "./state.js";
 import { toast } from "./ui.js";
@@ -50,18 +51,32 @@ function init() {
   // Voice input
   initVoiceInput();
 
+  // AI assistant
+  initAssistant();
+
   // Build static grid
   buildTimeLabels();
   buildSlotGrid();
 
   // Keyboard shortcuts
   document.addEventListener("keydown", (e) => {
-    if ($("modalOverlay").classList.contains("hidden") && $("projectModalOverlay").classList.contains("hidden")) {
+    // AI assistant shortcut: Ctrl+Shift+A
+    if ((e.ctrlKey || e.metaKey) && e.shiftKey && (e.key === 'A' || e.key === 'a' || e.key === 'Ф' || e.key === 'ф')) {
+      e.preventDefault();
+      toggleAssistant();
+      return;
+    }
+    if ($("modalOverlay").classList.contains("hidden") && $("projectModalOverlay").classList.contains("hidden") && !isAssistantOpen()) {
       if (e.key === "ArrowLeft") navDate(-1);
       if (e.key === "ArrowRight") navDate(1);
       if (e.key === "t" || e.key === "T" || e.key === "з" || e.key === "З") goToday();
     } else {
       if (e.key === "Escape") {
+        // Close assistant first if open
+        if (isAssistantOpen()) {
+          toggleAssistant();
+          return;
+        }
         if (!$("projectModalOverlay").classList.contains("hidden")) closeProjectModal();
         else closeModal();
       }
@@ -84,7 +99,10 @@ function init() {
 
   // Sync with storage changes from popup / background
   chrome.storage.onChanged.addListener((changes) => {
-    if (changes.projects || changes.tasks || changes.recurring) loadAndRender();
+    if (changes.projects || changes.tasks || changes.recurring) {
+      loadAndRender();
+      reload(); // keep assistant state fresh
+    }
   });
 }
 

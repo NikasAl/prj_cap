@@ -1,0 +1,288 @@
+/* ═══════════════════════════════════════
+   prjcap — AI Assistant chat panel styles
+   ═══════════════════════════════════════ */
+
+/* ── Floating toggle button ── */
+.assistant-toggle {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  border: 1px solid var(--accent);
+  background: var(--panel);
+  color: var(--accent);
+  font-size: 20px;
+  cursor: pointer;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+  transition: background .2s, transform .2s, box-shadow .2s;
+}
+.assistant-toggle:hover {
+  background: rgba(61, 139, 253, 0.15);
+  transform: scale(1.08);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.5);
+}
+.assistant-toggle.active {
+  background: var(--accent);
+  color: #fff;
+}
+
+/* ── Chat panel ── */
+.assistant-panel {
+  position: fixed;
+  bottom: 0;
+  right: 0;
+  width: 420px;
+  height: 520px;
+  max-height: 70vh;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 12px 12px 0 0;
+  z-index: 60;
+  display: flex;
+  flex-direction: column;
+  box-shadow: -4px -4px 24px rgba(0, 0, 0, 0.4);
+  transform: translateY(100%);
+  transition: transform .25s ease-out;
+}
+.assistant-panel.open {
+  transform: translateY(0);
+}
+
+/* ── Resize handle (top edge) ── */
+.assistant-resize {
+  position: absolute;
+  top: -4px;
+  left: 12px;
+  right: 12px;
+  height: 8px;
+  cursor: ns-resize;
+  z-index: 2;
+}
+.assistant-resize::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 2px;
+  transform: translateX(-50%);
+  width: 40px;
+  height: 3px;
+  border-radius: 2px;
+  background: var(--border);
+  opacity: 0;
+  transition: opacity .15s;
+}
+.assistant-resize:hover::after,
+.assistant-resize.active::after {
+  opacity: 1;
+  background: var(--muted);
+}
+
+/* ── Panel header ── */
+.assistant-hdr {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+  user-select: none;
+}
+.assistant-hdr-title {
+  flex: 1;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.assistant-hdr-title .ai-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--accent);
+  flex-shrink: 0;
+}
+.assistant-hdr-btn {
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 14px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: border-color .15s, background .15s, color .15s;
+  flex-shrink: 0;
+  line-height: 1;
+}
+.assistant-hdr-btn:hover {
+  border-color: var(--muted);
+  color: var(--text);
+  background: rgba(255, 255, 255, .05);
+}
+
+/* ── Messages area ── */
+.assistant-messages {
+  flex: 1;
+  overflow-y: auto;
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
+}
+.assistant-messages::-webkit-scrollbar { width: 6px; }
+.assistant-messages::-webkit-scrollbar-track { background: transparent; }
+.assistant-messages::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+/* ── Message bubble ── */
+.asst-msg {
+  max-width: 92%;
+  padding: 8px 12px;
+  border-radius: 10px;
+  font-size: 13px;
+  line-height: 1.45;
+  word-break: break-word;
+  white-space: pre-wrap;
+}
+.asst-msg-user {
+  align-self: flex-end;
+  background: var(--accent);
+  color: #fff;
+  border-bottom-right-radius: 3px;
+}
+.asst-msg-ai {
+  align-self: flex-start;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  color: var(--text);
+  border-bottom-left-radius: 3px;
+}
+.asst-msg-error {
+  align-self: flex-start;
+  background: rgba(232, 93, 93, 0.1);
+  border: 1px solid rgba(232, 93, 93, 0.3);
+  color: var(--danger);
+  border-bottom-left-radius: 3px;
+  font-size: 12px;
+}
+
+/* ── Typing indicator ── */
+.asst-typing {
+  align-self: flex-start;
+  display: flex;
+  gap: 4px;
+  padding: 10px 14px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  border-bottom-left-radius: 3px;
+}
+.asst-typing-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--muted);
+  animation: asst-bounce 1.2s infinite ease-in-out;
+}
+.asst-typing-dot:nth-child(2) { animation-delay: 0.15s; }
+.asst-typing-dot:nth-child(3) { animation-delay: 0.3s; }
+@keyframes asst-bounce {
+  0%, 60%, 100% { transform: translateY(0); opacity: .4; }
+  30% { transform: translateY(-5px); opacity: 1; }
+}
+
+/* ── Input area ── */
+.assistant-input {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  padding: 10px 14px;
+  border-top: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.assistant-input textarea {
+  flex: 1;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg);
+  color: var(--text);
+  font-size: 13px;
+  font-family: inherit;
+  line-height: 1.4;
+  resize: none;
+  max-height: 100px;
+  min-height: 36px;
+}
+.assistant-input textarea:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px rgba(61, 139, 253, 0.25);
+}
+.assistant-input textarea::placeholder {
+  color: var(--muted);
+  opacity: .6;
+}
+.assistant-send {
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: 1px solid var(--accent);
+  border-radius: 8px;
+  background: var(--accent);
+  color: #fff;
+  font-size: 16px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: filter .15s, opacity .15s;
+  line-height: 1;
+}
+.assistant-send:hover {
+  filter: brightness(1.15);
+}
+.assistant-send:disabled {
+  opacity: .4;
+  cursor: not-allowed;
+}
+
+/* ── Empty state (first open) ── */
+.asst-empty {
+  text-align: center;
+  color: var(--muted);
+  font-size: 12px;
+  padding: 20px;
+  opacity: .7;
+  line-height: 1.5;
+}
+
+/* ── Responsive ── */
+@media (max-width: 500px) {
+  .assistant-panel {
+    width: 100%;
+    height: 60vh;
+    border-radius: 0;
+  }
+  .assistant-toggle {
+    bottom: 16px;
+    right: 16px;
+    width: 42px;
+    height: 42px;
+    font-size: 18px;
+  }
+}

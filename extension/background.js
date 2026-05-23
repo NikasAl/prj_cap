@@ -1,5 +1,6 @@
 import { buildTaskMessage } from "./shared/message-builder.js";
-import { loadState, saveState } from "./shared/storage.js";
+import { loadState, saveState, loadLlmSettings } from "./shared/storage.js";
+import { chatCompletion } from "./shared/llm.js";
 
 /**
  * Выполняется в контексте страницы чата (без замыканий на модуль).
@@ -192,5 +193,25 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
       .catch((e) => sendResponse({ ok: false, error: String(e && e.message ? e.message : e) }));
     return true;
   }
+  if (msg && msg.action === "LLM_CHAT") {
+    handleLlmChat(msg.payload)
+      .then(sendResponse)
+      .catch((e) => sendResponse({ success: false, error: String(e && e.message ? e.message : e) }));
+    return true;
+  }
   return false;
 });
+
+async function handleLlmChat(payload) {
+  try {
+    const settings = await loadLlmSettings();
+    const result = await chatCompletion(settings, {
+      systemPrompt: payload.systemPrompt,
+      userMessage: payload.userMessage,
+    });
+    return { success: true, data: result };
+  } catch (err) {
+    console.error('[prjcap] LLM request failed:', err.message);
+    return { success: false, error: err.message };
+  }
+}

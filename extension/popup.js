@@ -1,5 +1,6 @@
 import { buildTaskMessage } from "./shared/message-builder.js";
-import { uid, loadState, saveState } from "./shared/storage.js";
+import { uid, loadState, saveState, loadLlmSettings, saveLlmSettings } from "./shared/storage.js";
+import { LLM_PROVIDERS } from "./shared/llm.js";
 import { projColor } from "./shared/colors.js";
 import { fmtD, todayStr, t2m } from "./shared/date-utils.js";
 
@@ -33,6 +34,13 @@ const el = {
   btnExportData: document.getElementById("btnExportData"),
   btnImportData: document.getElementById("btnImportData"),
   importFileInput: /** @type {HTMLInputElement} */ (document.getElementById("importFileInput")),
+  toggleLlmSection: document.getElementById("toggleLlmSection"),
+  llmSectionWrap: document.getElementById("llmSectionWrap"),
+  llmProvider: /** @type {HTMLSelectElement} */ (document.getElementById("llmProvider")),
+  llmApiKey: /** @type {HTMLInputElement} */ (document.getElementById("llmApiKey")),
+  llmModel: /** @type {HTMLSelectElement} */ (document.getElementById("llmModel")),
+  llmCustomModel: /** @type {HTMLInputElement} */ (document.getElementById("llmCustomModel")),
+  btnSaveLlm: document.getElementById("btnSaveLlm"),
 };
 
 /* ── Helpers ── */
@@ -583,6 +591,61 @@ chrome.storage.onChanged.addListener((changes) => {
   if (changes.tasks || changes.projects) {
     refresh();
   }
+});
+
+/* ── LLM Settings ── */
+
+function populateModelDropdown(providerKey) {
+  const provider = LLM_PROVIDERS[providerKey];
+  el.llmModel.innerHTML = '';
+  if (!provider) return;
+  for (const m of provider.models) {
+    const opt = document.createElement('option');
+    opt.value = m.id;
+    opt.textContent = m.name;
+    el.llmModel.appendChild(opt);
+  }
+}
+
+async function initLlmSettings() {
+  const settings = await loadLlmSettings();
+  el.llmProvider.value = settings.provider || 'z-ai';
+  const ps = settings.providers?.[settings.provider] || {};
+  el.llmApiKey.value = ps.apiKey || '';
+  el.llmCustomModel.value = ps.customModel || '';
+  populateModelDropdown(settings.provider);
+  el.llmModel.value = ps.model || el.llmModel.options[0]?.value || '';
+}
+
+el.toggleLlmSection.addEventListener("click", async () => {
+  const open = el.llmSectionWrap.classList.toggle("hidden") === false;
+  el.toggleLlmSection.setAttribute("aria-expanded", open ? "true" : "false");
+  if (open) await initLlmSettings();
+});
+
+el.llmProvider.addEventListener("change", () => {
+  const providerKey = el.llmProvider.value;
+  populateModelDropdown(providerKey);
+  // Try to restore saved model for this provider
+  loadLlmSettings().then(settings => {
+    const ps = settings.providers?.[providerKey] || {};
+    el.llmModel.value = ps.model || el.llmModel.options[0]?.value || '';
+    el.llmApiKey.value = ps.apiKey || '';
+    el.llmCustomModel.value = ps.customModel || '';
+  });
+});
+
+el.btnSaveLlm.addEventListener("click", async () => {
+  const providerKey = el.llmProvider.value;
+  const settings = await loadLlmSettings();
+  settings.provider = providerKey;
+  if (!settings.providers) settings.providers = {};
+  if (!settings.providers[providerKey]) settings.providers[providerKey] = {};
+  settings.providers[providerKey].apiKey = el.llmApiKey.value.trim();
+  settings.providers[providerKey].model = el.llmModel.value;
+  settings.providers[providerKey].customModel = el.llmCustomModel.value.trim();
+  await saveLlmSettings(settings);
+  setStatus("Настройки AI сохранены.", "ok");
 });
 
 refresh();
