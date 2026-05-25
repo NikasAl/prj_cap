@@ -8,6 +8,7 @@ import { getActiveModelId } from "../shared/llm.js";
 import { fmtD } from "../shared/date-utils.js";
 import { toast } from "./ui.js";
 import { projColor } from "../shared/colors.js";
+import { renderMarkdown } from "../shared/markdown.js";
 
 /* ── State ── */
 
@@ -355,13 +356,13 @@ function renderMessages() {
     const bubble = document.createElement('div');
     if (msg.role === 'user') {
       bubble.className = 'asst-msg asst-msg-user';
-      bubble.textContent = msg.content;
+      bubble.innerHTML = renderMarkdown(msg.content);
     } else if (msg.role === 'error') {
       bubble.className = 'asst-msg asst-msg-error';
       bubble.textContent = msg.content;
     } else {
       bubble.className = 'asst-msg asst-msg-ai';
-      bubble.textContent = msg.content;
+      bubble.innerHTML = renderMarkdown(msg.content);
     }
     messagesEl.appendChild(bubble);
   }

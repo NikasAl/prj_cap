@@ -153,9 +153,9 @@
   padding: 8px 12px;
   border-radius: 10px;
   font-size: 13px;
-  line-height: 1.45;
+  line-height: 1.5;
   word-break: break-word;
-  white-space: pre-wrap;
+  overflow-wrap: break-word;
 }
 .asst-msg-user {
   align-self: flex-end;
@@ -177,6 +177,108 @@
   color: var(--danger);
   border-bottom-left-radius: 3px;
   font-size: 12px;
+  white-space: pre-wrap;
+}
+
+/* ── Markdown content inside bubbles ── */
+.asst-msg p {
+  margin: 0 0 6px 0;
+}
+.asst-msg p:last-child {
+  margin-bottom: 0;
+}
+.asst-msg h3, .asst-msg h4, .asst-msg h5, .asst-msg h6 {
+  margin: 10px 0 4px 0;
+  font-weight: 600;
+  line-height: 1.3;
+}
+.asst-msg h3 { font-size: 14px; }
+.asst-msg h4 { font-size: 13px; }
+.asst-msg h5 { font-size: 12px; }
+.asst-msg h6 { font-size: 12px; color: var(--muted); }
+
+.asst-msg strong {
+  font-weight: 600;
+}
+.asst-msg em {
+  font-style: italic;
+}
+
+/* Lists */
+.asst-msg ul, .asst-msg ol {
+  margin: 4px 0;
+  padding-left: 20px;
+}
+.asst-msg li {
+  margin: 2px 0;
+}
+.asst-msg li:last-child {
+  margin-bottom: 0;
+}
+
+/* Inline code */
+.asst-msg code {
+  background: rgba(255, 255, 255, 0.08);
+  padding: 1px 5px;
+  border-radius: 4px;
+  font-family: ui-monospace, 'Consolas', 'Courier New', monospace;
+  font-size: 12px;
+  line-height: 1.4;
+}
+.asst-msg-user code {
+  background: rgba(255, 255, 255, 0.18);
+  color: #fff;
+}
+
+/* Code block */
+.asst-msg pre {
+  margin: 6px 0;
+  padding: 10px 12px;
+  background: rgba(0, 0, 0, 0.25);
+  border-radius: 6px;
+  overflow-x: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
+}
+.asst-msg pre::-webkit-scrollbar { height: 4px; }
+.asst-msg pre::-webkit-scrollbar-track { background: transparent; }
+.asst-msg pre::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+.asst-msg pre code {
+  background: none;
+  padding: 0;
+  font-size: 12px;
+  line-height: 1.5;
+  white-space: pre;
+}
+
+/* Blockquote */
+.asst-msg blockquote {
+  margin: 6px 0;
+  padding: 4px 10px;
+  border-left: 3px solid var(--muted);
+  color: var(--muted);
+  font-style: italic;
+}
+.asst-msg blockquote p {
+  margin: 2px 0;
+}
+
+/* Horizontal rule */
+.asst-msg hr {
+  border: none;
+  border-top: 1px solid var(--border);
+  margin: 8px 0;
+}
+
+/* Links */
+.asst-msg a {
+  color: var(--accent);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.asst-msg-user a {
+  color: #fff;
+  text-decoration: underline;
 }
 
 /* ── Typing indicator ── */
