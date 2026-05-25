@@ -67,17 +67,6 @@ function createPanel() {
       <button type="button" class="assistant-hdr-btn" id="asstBtnClose" title="Закрыть">\u2715</button>
     </div>
     <div class="assistant-messages" id="asstMessages"></div>
-    <div class="asst-context hidden" id="asstContext">
-      <div class="asst-context-hdr">
-        <span>Контекст ассистента (системный промпт)</span>
-        <div class="asst-context-actions">
-          <button type="button" class="assistant-hdr-btn" id="asstBtnResetCtx" title="Пересобрать из текущих данных">&#8635;</button>
-          <button type="button" class="assistant-hdr-btn" id="asstBtnBackChat" title="Назад к чату">&#8592; Чат</button>
-        </div>
-      </div>
-      <p class="asst-context-hint">Здесь можно увидеть и отредактировать данные, которые отправляются к AI. Изменения будут использованы в следующем запросе.</p>
-      <textarea class="asst-context-area" id="asstContextArea"></textarea>
-    </div>
     <div class="assistant-input" id="asstInputWrap">
       <textarea id="asstInput" rows="1" placeholder="Спросите что-нибудь о задачах..."></textarea>
       <button type="button" class="assistant-send" id="asstSend" title="Отправить (Enter)">&#10148;</button>
@@ -85,17 +74,44 @@ function createPanel() {
   `;
   document.body.appendChild(panel);
 
+  // Context modal — separate full-screen overlay
+  contextWrap = document.createElement('div');
+  contextWrap.className = 'asst-ctx-overlay hidden';
+  contextWrap.id = 'asstContext';
+  contextWrap.innerHTML = `
+    <div class="asst-ctx-modal">
+      <div class="asst-ctx-hdr">
+        <div>
+          <div class="asst-ctx-title">Контекст ассистента (системный промпт)</div>
+          <p class="asst-ctx-hint">Здесь можно увидеть и отредактировать данные, которые отправляются к AI. Изменения будут использованы в следующем запросе.</p>
+        </div>
+        <div class="asst-ctx-actions">
+          <button type="button" class="btn" id="asstBtnResetCtx" title="Пересобрать из текущих данных">&#8635; Пересобрать</button>
+          <button type="button" class="btn primary" id="asstBtnBackChat">Назад к чату</button>
+          <button type="button" class="btn-icon asst-ctx-close" id="asstBtnCtxClose" title="Закрыть">\u2715</button>
+        </div>
+      </div>
+      <textarea class="asst-ctx-area" id="asstContextArea"></textarea>
+    </div>
+  `;
+  document.body.appendChild(contextWrap);
+
   messagesEl = panel.querySelector('#asstMessages');
   inputEl = panel.querySelector('#asstInput');
   sendBtn = panel.querySelector('#asstSend');
-  contextWrap = panel.querySelector('#asstContext');
-  contextTextarea = panel.querySelector('#asstContextArea');
+  contextTextarea = contextWrap.querySelector('#asstContextArea');
 
   panel.querySelector('#asstBtnClose').addEventListener('click', closePanel);
   panel.querySelector('#asstBtnClear').addEventListener('click', clearHistory);
   panel.querySelector('#asstBtnContext').addEventListener('click', () => showContextView());
-  panel.querySelector('#asstBtnResetCtx').addEventListener('click', resetContext);
-  panel.querySelector('#asstBtnBackChat').addEventListener('click', showChatView);
+  contextWrap.querySelector('#asstBtnResetCtx').addEventListener('click', resetContext);
+  contextWrap.querySelector('#asstBtnBackChat').addEventListener('click', showChatView);
+  contextWrap.querySelector('#asstBtnCtxClose').addEventListener('click', showChatView);
+
+  // Close context on overlay background click
+  contextWrap.addEventListener('click', (e) => {
+    if (e.target === contextWrap) showChatView();
+  });
 
   contextTextarea.addEventListener('input', () => {
     customSystemPrompt = contextTextarea.value;
@@ -305,17 +321,14 @@ ${recentDone.length > 0 ? recentDone.join('\n') : 'Нет выполненных
 
 function showContextView() {
   isContextMode = true;
-  messagesEl.classList.add('hidden');
   contextWrap.classList.remove('hidden');
-  panel.querySelector('#asstInputWrap').classList.add('hidden');
   contextTextarea.value = customSystemPrompt || buildSystemPrompt();
+  contextTextarea.focus();
 }
 
 function showChatView() {
   isContextMode = false;
-  messagesEl.classList.remove('hidden');
   contextWrap.classList.add('hidden');
-  panel.querySelector('#asstInputWrap').classList.remove('hidden');
 }
 
 function resetContext() {
