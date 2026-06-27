@@ -253,33 +253,52 @@ export function renderCards() {
       chk.textContent = "✓ Сделано";
       card.appendChild(chk);
 
-      // Chat & copy action buttons (only for open/sent tasks)
-      if (!compact) {
-        const actWrap = document.createElement("div");
-        actWrap.className = "card-actions";
+      // Action buttons (always rendered, visible on hover)
+      const actWrap = document.createElement("div");
+      actWrap.className = "card-actions";
 
-        // Open chat button
-        const chatBtn = document.createElement("button");
-        chatBtn.type = "button";
-        chatBtn.className = "card-act-btn card-act-chat";
-        chatBtn.title = "Открыть чат с агентом";
-        chatBtn.innerHTML = "&#128172;";
-        chatBtn.dataset.projectId = t.projectId;
-        chatBtn.dataset.taskId = t.id;
-        actWrap.appendChild(chatBtn);
+      // Open chat button
+      const chatBtn = document.createElement("button");
+      chatBtn.type = "button";
+      chatBtn.className = "card-act-btn card-act-chat";
+      chatBtn.title = "Открыть чат и вставить";
+      chatBtn.innerHTML = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>';
+      chatBtn.dataset.projectId = t.projectId;
+      chatBtn.dataset.taskId = t.id;
+      actWrap.appendChild(chatBtn);
 
-        // Copy prompt button
-        const copyBtn = document.createElement("button");
-        copyBtn.type = "button";
-        copyBtn.className = "card-act-btn card-act-copy";
-        copyBtn.title = "Копировать промпт задачи";
-        copyBtn.innerHTML = "&#128203;";
-        copyBtn.dataset.taskId = t.id;
-        copyBtn.dataset.projectId = t.projectId;
-        actWrap.appendChild(copyBtn);
+      // Send to agent (full cycle) button
+      const sendBtn = document.createElement("button");
+      sendBtn.type = "button";
+      sendBtn.className = "card-act-btn card-act-send";
+      sendBtn.title = "Отправить агенту (вставить + отправить + мониторинг)";
+      sendBtn.innerHTML = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>';
+      sendBtn.dataset.projectId = t.projectId;
+      sendBtn.dataset.taskId = t.id;
+      actWrap.appendChild(sendBtn);
 
-        card.appendChild(actWrap);
+      // Copy prompt button
+      const copyBtn = document.createElement("button");
+      copyBtn.type = "button";
+      copyBtn.className = "card-act-btn card-act-copy";
+      copyBtn.title = "Копировать промпт задачи";
+      copyBtn.innerHTML = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>';
+      copyBtn.dataset.taskId = t.id;
+      copyBtn.dataset.projectId = t.projectId;
+      actWrap.appendChild(copyBtn);
+
+      // View agent log button (for working/done tasks with log)
+      if (t.agentLog) {
+        const logBtn = document.createElement("button");
+        logBtn.type = "button";
+        logBtn.className = "card-act-btn card-act-log";
+        logBtn.title = "Лог выполнения агента";
+        logBtn.innerHTML = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>';
+        logBtn.dataset.taskId = t.id;
+        actWrap.appendChild(logBtn);
       }
+
+      card.appendChild(actWrap);
     }
 
     // Time range

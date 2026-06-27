@@ -708,16 +708,17 @@ body {
   transform: scale(1.15);
 }
 
-/* ── Card action buttons (chat, copy) ── */
+/* ── Card action buttons (chat, send, copy, log) ── */
 .card-actions {
   position: absolute;
-  bottom: 4px;
-  right: 6px;
+  bottom: 2px;
+  right: 4px;
   display: flex;
-  gap: 4px;
+  gap: 3px;
   opacity: 0;
   transition: opacity .15s;
   pointer-events: none;
+  z-index: 3;
 }
 .task-card:hover .card-actions { opacity: 1; pointer-events: all; }
 .card-act-btn {
@@ -735,6 +736,7 @@ body {
   line-height: 1;
   transition: border-color .15s, background .15s, color .15s;
   white-space: nowrap;
+  flex-shrink: 0;
 }
 .card-act-btn:hover {
   border-color: var(--accent);
@@ -746,13 +748,21 @@ body {
   background: rgba(61,139,253,.15);
   color: var(--accent);
 }
-.card-act-btn.card-act-copy:hover {
+.card-act-btn.card-act-send:hover {
   border-color: var(--ok);
-  background: rgba(62,207,142,.12);
+  background: rgba(62,207,142,.15);
   color: var(--ok);
 }
-/* Show card-actions above time when both present */
-.task-card .card-actions { z-index: 3; }
+.card-act-btn.card-act-copy:hover {
+  border-color: #a0a8b4;
+  background: rgba(160,168,180,.12);
+  color: #c8cdd5;
+}
+.card-act-btn.card-act-log:hover {
+  border-color: #ffd89e;
+  background: rgba(255,216,158,.12);
+  color: #ffd89e;
+}
 
 /* ── Microphone / voice dictation ── */
 .btn-mic {

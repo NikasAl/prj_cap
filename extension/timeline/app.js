@@ -158,10 +158,22 @@ function setupCardActions() {
       openAgentChat(chatBtn.dataset.projectId);
       return;
     }
+    const sendBtn = e.target.closest(".card-act-send");
+    if (sendBtn) {
+      e.stopPropagation();
+      sendToAgent(sendBtn.dataset.projectId);
+      return;
+    }
     const copyBtn = e.target.closest(".card-act-copy");
     if (copyBtn) {
       e.stopPropagation();
       copyTaskPrompt(copyBtn.dataset.taskId, copyBtn.dataset.projectId);
+      return;
+    }
+    const logBtn = e.target.closest(".card-act-log");
+    if (logBtn) {
+      e.stopPropagation();
+      showAgentLog(logBtn.dataset.taskId);
       return;
     }
   });
@@ -191,6 +203,96 @@ async function openAgentChat(projectId) {
   } catch (err) {
     toast(String(err.message || err), "err");
   }
+}
+
+async function sendToAgent(projectId) {
+  const project = tl.projects.find((p) => String(p.id) === String(projectId));
+  if (!project || !project.chatUrl) {
+    toast("У проекта не задан URL чата", "err");
+    return;
+  }
+  try {
+    toast("Отправляю задачу агенту…");
+    const res = await chrome.runtime.sendMessage({ action: "openChatAndSendNext", projectId });
+    if (!res || !res.ok) {
+      toast((res && res.error) || "Ошибка", "err");
+      return;
+    }
+    if (!res.pasted) {
+      toast("Вставка не сработала", "err");
+      if (res.message) await navigator.clipboard.writeText(res.message);
+      return;
+    }
+    if (!res.sent) {
+      toast("Вставлено, но отправить не удалось", "err");
+      return;
+    }
+    toast(res.monitored ? "Задача отправлена, мониторинг запущен" : "Задача отправлена", "ok");
+    await reload();
+    loadAndRender();
+  } catch (err) {
+    toast(String(err.message || err), "err");
+  }
+}
+
+async function showAgentLog(taskId) {
+  await reload();
+  const task = tl.tasks.find((t) => t.id === taskId);
+  if (!task || !task.agentLog) {
+    toast("Лог не найден", "err");
+    return;
+  }
+  // Open in a simple overlay modal
+  const overlay = document.createElement("div");
+  overlay.className = "modal-overlay";
+  overlay.style.cursor = "pointer";
+  const modal = document.createElement("div");
+  modal.className = "modal";
+  modal.style.cursor = "default";
+  modal.style.width = "560px";
+  modal.style.maxHeight = "80vh";
+
+  const header = document.createElement("h2");
+  header.textContent = "Лог агента";
+  header.style.marginBottom = "8px";
+  modal.appendChild(header);
+
+  const taskLabel = document.createElement("div");
+  taskLabel.style.cssText = "font-size:12px;color:var(--muted);margin-bottom:10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;";
+  taskLabel.textContent = task.taskText;
+  taskLabel.title = task.taskText;
+  modal.appendChild(taskLabel);
+
+  const pre = document.createElement("pre");
+  pre.style.cssText = "flex:1;min-height:200px;max-height:55vh;overflow-y:auto;padding:10px 12px;border:1px solid var(--border);border-radius:8px;background:var(--bg);font-size:11px;line-height:1.5;white-space:pre-wrap;word-break:break-word;margin:0;scrollbar-width:thin;scrollbar-color:var(--border) transparent;";
+  pre.textContent = task.agentLog;
+  modal.appendChild(pre);
+
+  const actions = document.createElement("div");
+  actions.className = "modal-actions";
+  actions.style.marginTop = "12px";
+
+  const btnCopy = document.createElement("button");
+  btnCopy.type = "button";
+  btnCopy.className = "btn";
+  btnCopy.textContent = "Копировать";
+  btnCopy.addEventListener("click", async () => {
+    await navigator.clipboard.writeText(task.agentLog);
+    toast("Лог скопирован", "ok");
+  });
+
+  const btnClose = document.createElement("button");
+  btnClose.type = "button";
+  btnClose.className = "btn primary";
+  btnClose.textContent = "Закрыть";
+  btnClose.addEventListener("click", () => overlay.remove());
+
+  actions.appendChild(btnCopy);
+  actions.appendChild(btnClose);
+  modal.appendChild(actions);
+  overlay.appendChild(modal);
+  overlay.addEventListener("click", (e) => { if (e.target === overlay) overlay.remove(); });
+  document.body.appendChild(overlay);
 }
 
 async function copyTaskPrompt(taskId, projectId) {
