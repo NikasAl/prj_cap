@@ -30,15 +30,24 @@ const LLM_PROVIDERS = {
       { id: 'GLM-5.1-Turbo', name: 'GLM-5.1-Turbo' },
     ],
   },
+  'local': {
+    name: 'Локальный LLM',
+    baseUrl: '', // настраивается пользователем
+    defaultModel: '',
+    models: [], // модели вводятся вручную через customModel
+    needsApiKey: false,
+    needsBaseUrl: true,
+  },
 };
 
-/** @typedef {{ provider: string, providers: { [key: string]: { apiKey: string, model: string, customModel: string } } }} LlmSettings */
+/** @typedef {{ provider: string, providers: { [key: string]: { apiKey: string, model: string, customModel: string, baseUrl: string } } }} LlmSettings */
 
 const DEFAULT_LLM_SETTINGS = {
   provider: 'z-ai',
   providers: {
-    'z-ai': { apiKey: '', model: 'GLM-4.7-Flash', customModel: '' },
-    'openrouter': { apiKey: '', model: 'google/gemini-2.0-flash-001', customModel: '' },
+    'z-ai': { apiKey: '', model: 'GLM-4.7-Flash', customModel: '', baseUrl: '' },
+    'openrouter': { apiKey: '', model: 'google/gemini-2.0-flash-001', customModel: '', baseUrl: '' },
+    'local': { apiKey: '', model: '', customModel: '', baseUrl: 'http://turbo:8080' },
   },
 };
 
@@ -54,28 +63,41 @@ export async function chatCompletion(settings, { systemPrompt, userMessage }) {
   if (!provider) throw new Error(`Неизвестный провайдер: ${providerKey}`);
 
   const providerSettings = settings.providers?.[providerKey] || {};
-  const apiKey = providerSettings.apiKey || providerSettings.customModel && '' || '';
-  if (!apiKey) throw new Error(`API ключ для ${provider.name} не указан. Настройте в popup расширения.`);
+
+  // API ключ обязателен для всех, кроме локального провайдера
+  if (!provider.needsApiKey) {
+    // local — ключ не нужен
+  } else {
+    const apiKey = providerSettings.apiKey || '';
+    if (!apiKey) throw new Error(`API ключ для ${provider.name} не указан. Настройте в popup расширения.`);
+  }
 
   const model = providerSettings.customModel
     || providerSettings.model
     || provider.defaultModel;
 
+  if (!model) throw new Error(`Модель не указана для ${provider.name}. Введите название модели.`);
+
   const messages = [];
   if (systemPrompt) messages.push({ role: 'system', content: systemPrompt });
   messages.push({ role: 'user', content: userMessage });
 
-  const headers = {
-    'Content-Type': 'application/json',
-    'Authorization': `Bearer ${apiKey}`,
-  };
-  // OpenRouter requires HTTP-Referer and X-Title
+  const headers = { 'Content-Type': 'application/json' };
+
+  // Авторизация — только если есть ключ (для локального не нужен)
+  if (providerSettings.apiKey) {
+    headers['Authorization'] = `Bearer ${providerSettings.apiKey}`;
+  }
+
+  // OpenRouter требует дополнительные заголовки
   if (providerKey === 'openrouter') {
     headers['HTTP-Referer'] = 'chrome-extension://prjcap';
     headers['X-Title'] = 'prjcap Extension';
   }
 
-  const url = `${provider.baseUrl}/chat/completions`;
+  // Base URL: из настроек провайдера или дефолтный
+  const baseUrl = (providerSettings.baseUrl || provider.baseUrl).replace(/\/+$/, '');
+  const url = `${baseUrl}/chat/completions`;
   const response = await fetch(url, {
     method: 'POST',
     headers,

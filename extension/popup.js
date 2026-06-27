@@ -38,9 +38,14 @@ const el = {
   toggleLlmSection: document.getElementById("toggleLlmSection"),
   llmSectionWrap: document.getElementById("llmSectionWrap"),
   llmProvider: /** @type {HTMLSelectElement} */ (document.getElementById("llmProvider")),
+  llmBaseUrl: /** @type {HTMLInputElement} */ (document.getElementById("llmBaseUrl")),
   llmApiKey: /** @type {HTMLInputElement} */ (document.getElementById("llmApiKey")),
   llmModel: /** @type {HTMLSelectElement} */ (document.getElementById("llmModel")),
   llmCustomModel: /** @type {HTMLInputElement} */ (document.getElementById("llmCustomModel")),
+  lblLlmBaseUrl: document.getElementById("lblLlmBaseUrl"),
+  lblLlmApiKey: document.getElementById("lblLlmApiKey"),
+  lblLlmModel: document.getElementById("lblLlmModel"),
+  lblLlmCustomModel: document.getElementById("lblLlmCustomModel"),
   btnSaveLlm: document.getElementById("btnSaveLlm"),
 };
 
@@ -688,25 +693,51 @@ chrome.storage.onChanged.addListener((changes) => {
 
 /* ── LLM Settings ── */
 
-function populateModelDropdown(providerKey) {
+function updateLlmProviderUI(providerKey) {
   const provider = LLM_PROVIDERS[providerKey];
+  const isLocal = providerKey === 'local';
+
+  // Base URL — показываем только для local
+  el.llmBaseUrl.classList.toggle('hidden', !isLocal);
+  el.lblLlmBaseUrl.classList.toggle('hidden', !isLocal);
+
+  // API ключ — скрываем для local (не нужен)
+  el.llmApiKey.classList.toggle('hidden', isLocal);
+  el.lblLlmApiKey.classList.toggle('hidden', isLocal);
+
+  // Выпадающий список моделей — скрываем для local (модель вводится вручную)
+  el.llmModel.classList.toggle('hidden', isLocal);
+  el.lblLlmModel.classList.toggle('hidden', isLocal);
+
+  // Для local меняем подсказку у customModel
+  el.lblLlmCustomModel.textContent = isLocal
+    ? 'Название модели (обязательно)'
+    : 'Своё название модели (необязательно, переопределяет выбор выше)';
+  el.llmCustomModel.placeholder = isLocal
+    ? 'Например: Qwen/Qwen3-8B, llama3, mistral'
+    : 'Например: google/gemini-2.0-flash-001';
+
+  // Заполняем dropdown моделей
   el.llmModel.innerHTML = '';
-  if (!provider) return;
-  for (const m of provider.models) {
-    const opt = document.createElement('option');
-    opt.value = m.id;
-    opt.textContent = m.name;
-    el.llmModel.appendChild(opt);
+  if (provider && provider.models.length > 0) {
+    for (const m of provider.models) {
+      const opt = document.createElement('option');
+      opt.value = m.id;
+      opt.textContent = m.name;
+      el.llmModel.appendChild(opt);
+    }
   }
 }
 
 async function initLlmSettings() {
   const settings = await loadLlmSettings();
-  el.llmProvider.value = settings.provider || 'z-ai';
-  const ps = settings.providers?.[settings.provider] || {};
+  const providerKey = settings.provider || 'z-ai';
+  el.llmProvider.value = providerKey;
+  const ps = settings.providers?.[providerKey] || {};
+  el.llmBaseUrl.value = ps.baseUrl || '';
   el.llmApiKey.value = ps.apiKey || '';
   el.llmCustomModel.value = ps.customModel || '';
-  populateModelDropdown(settings.provider);
+  updateLlmProviderUI(providerKey);
   el.llmModel.value = ps.model || el.llmModel.options[0]?.value || '';
 }
 
@@ -718,25 +749,46 @@ el.toggleLlmSection.addEventListener("click", async () => {
 
 el.llmProvider.addEventListener("change", () => {
   const providerKey = el.llmProvider.value;
-  populateModelDropdown(providerKey);
-  // Try to restore saved model for this provider
+  updateLlmProviderUI(providerKey);
+  // Восстановить сохранённые настройки для этого провайдера
   loadLlmSettings().then(settings => {
     const ps = settings.providers?.[providerKey] || {};
-    el.llmModel.value = ps.model || el.llmModel.options[0]?.value || '';
+    el.llmBaseUrl.value = ps.baseUrl || '';
     el.llmApiKey.value = ps.apiKey || '';
     el.llmCustomModel.value = ps.customModel || '';
+    el.llmModel.value = ps.model || el.llmModel.options[0]?.value || '';
   });
 });
 
 el.btnSaveLlm.addEventListener("click", async () => {
   const providerKey = el.llmProvider.value;
+  const provider = LLM_PROVIDERS[providerKey];
   const settings = await loadLlmSettings();
   settings.provider = providerKey;
   if (!settings.providers) settings.providers = {};
   if (!settings.providers[providerKey]) settings.providers[providerKey] = {};
-  settings.providers[providerKey].apiKey = el.llmApiKey.value.trim();
-  settings.providers[providerKey].model = el.llmModel.value;
-  settings.providers[providerKey].customModel = el.llmCustomModel.value.trim();
+  const ps = settings.providers[providerKey];
+  ps.apiKey = el.llmApiKey.value.trim();
+  ps.model = el.llmModel.value;
+  ps.customModel = el.llmCustomModel.value.trim();
+  ps.baseUrl = el.llmBaseUrl.value.trim();
+
+  // Валидация для local
+  if (providerKey === 'local') {
+    if (!ps.baseUrl) {
+      setStatus("Укажите Base URL для локального LLM.", "err");
+      return;
+    }
+    try { new URL(ps.baseUrl); } catch {
+      setStatus("Некорректный Base URL.", "err");
+      return;
+    }
+    if (!ps.customModel) {
+      setStatus("Укажите название модели для локального LLM.", "err");
+      return;
+    }
+  }
+
   await saveLlmSettings(settings);
   setStatus("Настройки AI сохранены.", "ok");
 });

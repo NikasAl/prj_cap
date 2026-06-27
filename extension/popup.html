@@ -95,12 +95,15 @@
         <select id="llmProvider" class="ctl">
           <option value="z-ai">Z-AI (GLM)</option>
           <option value="openrouter">OpenRouter</option>
+          <option value="local">Локальный LLM</option>
         </select>
-        <label class="lbl">API-ключ</label>
+        <label class="lbl" id="lblLlmBaseUrl">Base URL</label>
+        <input type="url" id="llmBaseUrl" class="ctl mono hidden" placeholder="http://turbo:8080" />
+        <label class="lbl" id="lblLlmApiKey">API-ключ</label>
         <input type="password" id="llmApiKey" class="ctl mono" placeholder="sk-..." />
-        <label class="lbl">Модель</label>
+        <label class="lbl" id="lblLlmModel">Модель</label>
         <select id="llmModel" class="ctl"></select>
-        <label class="lbl">Своё название модели (необязательно, переопределяет выбор выше)</label>
+        <label class="lbl" id="lblLlmCustomModel">Своё название модели (необязательно, переопределяет выбор выше)</label>
         <input type="text" id="llmCustomModel" class="ctl mono" placeholder="Например: google/gemini-2.0-flash-001" />
         <div class="row gap">
           <button type="button" id="btnSaveLlm" class="btn primary">Сохранить настройки</button>
