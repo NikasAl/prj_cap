@@ -5,10 +5,11 @@ import { projColor } from "./shared/colors.js";
 import { fmtD, todayStr, t2m } from "./shared/date-utils.js";
 
 /** @typedef {{ id: string, name: string, chatUrl: string, instructionPrefix?: string, agentTail?: string, inputSelector?: string }} Project */
-/** @typedef {{ id: string, projectId: string, taskText: string, status: 'open'|'sent'|'done', createdAt: string, sentAt?: string, doneAt?: string, scheduledDate?: string, scheduledTime?: string, duration?: number }} Task */
+/** @typedef {{ id: string, projectId: string, taskText: string, status: 'open'|'sent'|'working'|'done', createdAt: string, sentAt?: string, doneAt?: string, scheduledDate?: string, scheduledTime?: string, duration?: number, agentLog?: string }} Task */
 
 const el = {
   projectSelect: /** @type {HTMLSelectElement} */ (document.getElementById("projectSelect")),
+  btnOpenSend: document.getElementById("btnOpenSend"),
   btnOpenPaste: document.getElementById("btnOpenPaste"),
   btnOpenOnly: document.getElementById("btnOpenOnly"),
   btnCopyNext: document.getElementById("btnCopyNext"),
@@ -214,7 +215,17 @@ async function render(state) {
     li.appendChild(text);
     const actions = document.createElement("div");
     actions.className = "task-actions row gap";
-    if (t.status !== "done") {
+    if (t.status === "working" || (t.status === "done" && t.agentLog)) {
+      const bLog = document.createElement("button");
+      bLog.type = "button";
+      bLog.className = "btn";
+      bLog.textContent = "Лог";
+      bLog.addEventListener("click", () => {
+        showTaskLog(t);
+      });
+      actions.appendChild(bLog);
+    }
+    if (t.status !== "done" && t.status !== "working") {
       const bDone = document.createElement("button");
       bDone.type = "button";
       bDone.className = "btn";
@@ -458,6 +469,44 @@ el.btnCopyNext.addEventListener("click", async () => {
   setStatus("Текст следующей задачи скопирован (с постоянным промптом).", "ok");
 });
 
+/* ── «Отправить задачу агенту» (полный поток: открыть → вставить → отправить → мониторить) ── */
+
+el.btnOpenSend.addEventListener("click", async () => {
+  const pid = selectedProjectId();
+  if (!pid) {
+    setStatus("Выберите проект.", "err");
+    return;
+  }
+  setStatus("Открываю чат и отправляю задачу…");
+  try {
+    const res = await chrome.runtime.sendMessage({ action: "openChatAndSendNext", projectId: pid });
+    if (!res || !res.ok) {
+      setStatus((res && res.error) || "Ошибка.", "err");
+      return;
+    }
+    if (!res.pasted) {
+      const hint = res.inject?.error ? ` (${res.inject.error})` : "";
+      setStatus(`Вставка не сработала${hint}. Текст скопирован в буфер.`, "err");
+      if (res.message) await navigator.clipboard.writeText(res.message);
+      return;
+    }
+    if (!res.sent) {
+      setStatus("Текст вставлен, но отправить не удалось: " + (res.sendError || ""), "err");
+      return;
+    }
+    if (res.monitored) {
+      setStatus("Задача отправлена агенту. Мониторинг запущен — лог сохранится автоматически.", "ok");
+    } else {
+      setStatus("Задача отправлена, но мониторинг не запущен.", "ok");
+    }
+    await refresh();
+  } catch (e) {
+    setStatus(String(e?.message || e), "err");
+  }
+});
+
+/* ── «Открыть и вставить» (только Phase 1, без отправки) ── */
+
 el.btnOpenPaste.addEventListener("click", async () => {
   const pid = selectedProjectId();
   if (!pid) {
@@ -486,6 +535,50 @@ el.btnOpenPaste.addEventListener("click", async () => {
     setStatus(String(e && e.message ? e.message : e), "err");
   }
 });
+
+/* ── Show task log in a simple modal ── */
+
+function showTaskLog(task) {
+  if (!task.agentLog) {
+    setStatus("Лог ещё не собран.", "err");
+    return;
+  }
+  const overlay = document.createElement("div");
+  overlay.className = "log-overlay";
+  const modal = document.createElement("div");
+  modal.className = "log-modal";
+  const header = document.createElement("div");
+  header.className = "log-modal-header";
+  header.textContent = "Лог агента — " + task.taskText.substring(0, 60);
+  const pre = document.createElement("pre");
+  pre.className = "log-modal-body";
+  pre.textContent = task.agentLog;
+  const btnClose = document.createElement("button");
+  btnClose.type = "button";
+  btnClose.className = "btn";
+  btnClose.textContent = "Закрыть";
+  btnClose.addEventListener("click", () => overlay.remove());
+  const btnCopy = document.createElement("button");
+  btnCopy.type = "button";
+  btnCopy.className = "btn";
+  btnCopy.textContent = "Копировать";
+  btnCopy.addEventListener("click", async () => {
+    await navigator.clipboard.writeText(task.agentLog);
+    setStatus("Лог скопирован.", "ok");
+  });
+  const btnRow = document.createElement("div");
+  btnRow.className = "row gap";
+  btnRow.appendChild(btnCopy);
+  btnRow.appendChild(btnClose);
+  modal.appendChild(header);
+  modal.appendChild(pre);
+  modal.appendChild(btnRow);
+  overlay.appendChild(modal);
+  overlay.addEventListener("click", (e) => {
+    if (e.target === overlay) overlay.remove();
+  });
+  document.body.appendChild(overlay);
+}
 
 el.toggleProjectForm.addEventListener("click", () => {
   const open = el.projectFormWrap.classList.toggle("hidden") === false;
