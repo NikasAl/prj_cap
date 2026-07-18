@@ -6,6 +6,7 @@ import { uid } from "../shared/storage.js";
 import { tl, reload, persistTasks, persistRecurring, dateStr } from "./state.js";
 import { renderCards, renderUnscheduled, loadAndRender } from "./render.js";
 import { toast } from "./ui.js";
+import { todayStr } from "../shared/date-utils.js";
 
 const $ = (id) => document.getElementById(id);
 
@@ -15,6 +16,9 @@ const DOW_FULL = ["Воскресенье", "Понедельник", "Втор�
 /* ── Spawn recurring tasks for a date ── */
 
 export async function spawnRecurringForDate(dateString) {
+  // Периодические задачи создаются только для сегодняшнего дня
+  if (dateString !== todayStr()) return;
+
   await reload();
   const dow = new Date(dateString + "T00:00:00").getDay(); // 0=Sun..6=Sat
   const enabled = tl.recurring.filter((r) => r.enabled && r.daysOfWeek.includes(dow));
